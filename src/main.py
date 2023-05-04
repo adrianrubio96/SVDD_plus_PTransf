@@ -1,8 +1,10 @@
+import os
 import click
 import torch
 import logging
 import random
 import numpy as np
+
 
 from utils.config import Config
 from utils.visualization.plot_images_grid import plot_images_grid
@@ -14,8 +16,8 @@ from datasets.main import load_dataset
 # Settings
 ################################################################################
 @click.command()
-@click.argument('dataset_name', type=click.Choice(['mnist', 'cifar10']))
-@click.argument('net_name', type=click.Choice(['mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU']))
+@click.argument('dataset_name', type=click.Choice(['mnist', 'cifar10', '4tops']))
+@click.argument('net_name', type=click.Choice(['mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU','ftops_Mlp']))
 @click.argument('xp_path', type=click.Path(exists=True))
 @click.argument('data_path', type=click.Path(exists=True))
 @click.option('--load_config', type=click.Path(exists=True), default=None,
@@ -32,7 +34,9 @@ from datasets.main import load_dataset
 @click.option('--lr', type=float, default=0.001,
               help='Initial learning rate for Deep SVDD network training. Default=0.001')
 @click.option('--n_epochs', type=int, default=50, help='Number of epochs to train.')
-@click.option('--lr_milestone', type=int, default=0, multiple=True,
+#@click.option('--lr_milestone', type=int, default=[0], multiple=True,
+#              help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
+@click.option('--lr_milestone', default=[0], multiple=True,
               help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
 @click.option('--batch_size', type=int, default=128, help='Batch size for mini-batch training.')
 @click.option('--weight_decay', type=float, default=1e-6,
@@ -44,7 +48,7 @@ from datasets.main import load_dataset
 @click.option('--ae_lr', type=float, default=0.001,
               help='Initial learning rate for autoencoder pretraining. Default=0.001')
 @click.option('--ae_n_epochs', type=int, default=100, help='Number of epochs to train autoencoder.')
-@click.option('--ae_lr_milestone', type=int, default=0, multiple=True,
+@click.option('--ae_lr_milestone', type=int, default=[0], multiple=True,
               help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
 @click.option('--ae_batch_size', type=int, default=128, help='Batch size for mini-batch autoencoder training.')
 @click.option('--ae_weight_decay', type=float, default=1e-6,
@@ -53,9 +57,16 @@ from datasets.main import load_dataset
               help='Number of workers for data loading. 0 means that the data will be loaded in the main process.')
 @click.option('--normal_class', type=int, default=0,
               help='Specify the normal class of the dataset (all other classes are considered anomalous).')
-def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed,
-         optimizer_name, lr, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr,
-         ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class):
+@click.option('--rep_dim', type=int, default=10,
+              help='Specify the latent space dimensions.')
+
+def plot_loghist(x, bins, alpha):
+  hist, bins = np.histogram(x, bins=bins)
+  logbins = np.logspace(np.log10(bins[0]),np.log10(bins[-1]),len(bins))
+  plt.hist(x, bins=logbins, alpha=alpha)
+  plt.xscale('log')
+
+def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim):
     """
     Deep SVDD, a fully deep method for anomaly detection.
 
@@ -64,6 +75,12 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, ob
     :arg XP_PATH: Export path for logging the experiment.
     :arg DATA_PATH: Root path of data.
     """
+    isExist = os.path.exists(xp_path)
+    if not isExist:
+
+     # Create a new directory because it does not exist
+     os.makedirs(xp_path)
+     print("A new " + xp_path  + " directory is created!")
 
     # Get configuration
     cfg = Config(locals().copy())
@@ -111,11 +128,24 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, ob
     logger.info('Number of dataloader workers: %d' % n_jobs_dataloader)
 
     # Load data
+ 
     dataset = load_dataset(dataset_name, data_path, normal_class)
+
+    # Extract number of feautures
+    train_loader, _, _= dataset.loaders(batch_size=10)
+    for data in train_loader:
+        inputs, _, _ = data
+        break
+    num_features = inputs.shape[1]
+
+    # Pass through keyboard num of dimensions and feautures via dictionary
+    # to set_network
+
+    set_network_dic = {'num_features':num_features, 'rep_dim':cfg.settings['rep_dim']}
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(cfg.settings['objective'], cfg.settings['nu'])
-    deep_SVDD.set_network(net_name)
+    deep_SVDD.set_network(net_name, **set_network_dic)
     # If specified, load Deep SVDD model (radius R, center c, network weights, and possibly autoencoder weights)
     if load_model:
         deep_SVDD.load_model(model_path=load_model, load_ae=True)
@@ -140,7 +170,8 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, ob
                            batch_size=cfg.settings['ae_batch_size'],
                            weight_decay=cfg.settings['ae_weight_decay'],
                            device=device,
-                           n_jobs_dataloader=n_jobs_dataloader)
+                           n_jobs_dataloader=n_jobs_dataloader, 
+                           **set_network_dic)
 
     # Log training details
     logger.info('Training optimizer: %s' % cfg.settings['optimizer_name'])
@@ -184,9 +215,12 @@ def main(dataset_name, net_name, xp_path, data_path, load_config, load_model, ob
 
     # Save results, model, and configuration
     deep_SVDD.save_results(export_json=xp_path + '/results.json')
-    deep_SVDD.save_model(export_model=xp_path + '/model.tar')
+    deep_SVDD.save_model(export_model=xp_path + '/model.tar', save_ae=False)
     cfg.save_config(export_json=xp_path + '/config.json')
 
 
+
 if __name__ == '__main__':
+
+
     main()
