@@ -4,8 +4,8 @@ from base.base_net import BaseNet
 from torch.utils.data.dataloader import DataLoader
 from sklearn.metrics import roc_auc_score
 
-# import EarlyStopping
-from pytorchtools import EarlyStopping
+#import EarlyStopping
+#from pytorchtools import EarlyStopping
 
 import logging
 import time
@@ -66,7 +66,7 @@ class DeepSVDDTrainer(BaseTrainer):
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
 
         # initialize the early_stopping object
-        early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
+        #early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
 
 
         # Initialize hypersphere center c (if c not loaded)
@@ -171,9 +171,10 @@ class DeepSVDDTrainer(BaseTrainer):
  
              wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader))})
 
-            early_stopping(validation_loss/len(val_loader), net)
+            #early_stopping(validation_loss/len(val_loader), net)
         
-            if early_stopping.early_stop:
+            #if early_stopping.early_stop:
+            if epoch > 5:
               print("Early stopping")
               break
 
