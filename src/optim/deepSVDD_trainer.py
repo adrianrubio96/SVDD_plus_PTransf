@@ -174,9 +174,8 @@ class DeepSVDDTrainer(BaseTrainer):
             #early_stopping(validation_loss/len(val_loader), net)
         
             #if early_stopping.early_stop:
-            if epoch > 5:
-              print("Early stopping")
-              break
+            #  print("Early stopping")
+            #  break
 
             scheduler.step(validation_loss / len(val_loader))
 

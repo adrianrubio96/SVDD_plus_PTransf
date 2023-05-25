@@ -243,6 +243,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     
      plt.savefig(xp_path + '/scores_' + cfg.settings['network_name'] + '_zdim_' + str(_z) + '.pdf')
 
+     wandb.finish()
 
      del deep_SVDD
 
