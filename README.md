@@ -20,6 +20,15 @@ python -m ensurepip --upgrade
 pip install -r requirements.txt
 ```
 
+## Run a training
+Interactively, you can use the `run.sh` script in the `src` directory, in which the following command would be run:
+```
+gpurun python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /path/to/input/h5/ --objective one-class --lr 0.0001 --n_epochs 5 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --pretrain False --network_name ParT_default_5
+```
+
+Running on batch, longer trainings can be achieved. Actually, the default training will loop over a set of latent space dimensions (2, 5, 10, 20, 25),
+which will be saved as independent trainings.
+
 ## WANDB framework for metrics
-The output of the training can be analised using the WANDB (Weights AND Biases) framework.
+The output of the different trainings can be analised using the WANDB (Weights AND Biases) framework.
 A link is provided in the log of the training.
