@@ -147,33 +147,33 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     # to set_network
 
     #Here the loop
-    for _z in tqdm(cfg.settings['rep_dim']):
+    #for _z in tqdm(cfg.settings['rep_dim']): # Not looping anymore on latent space dimensions
 
-     print('Latent space dimensions', _z)
+    #print('Latent space dimensions', _z)
 
-     # Start a W&B run
-     wandb.init(project='test', name=cfg.settings['network_name'] + '_dim_' + str(_z)) 
+    # Start a W&B run
+    wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
 
-     #set_network_dic = {'num_features':num_features, 'rep_dim': _z}
+    #set_network_dic = {'num_features':num_features, 'rep_dim': _z}
 
-     input_dim = 12
-     embed_dims = 128
-     pair_embed_dims = 64  
-     fc_nodes = 64   
+    input_dim = 12
+    embed_dims = 128
+    pair_embed_dims = 64  
+    fc_nodes = 64   
 
-     set_network_dic = {'num_classes': _z, 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
+    set_network_dic = {'num_classes': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
 
-     # Initialize DeepSVDD model and set neural network \phi
-     deep_SVDD = DeepSVDD(cfg.settings['objective'], cfg.settings['nu'])
-     deep_SVDD.set_network(net_name, **set_network_dic)
+    # Initialize DeepSVDD model and set neural network \phi
+    deep_SVDD = DeepSVDD(cfg.settings['objective'], cfg.settings['nu'])
+    deep_SVDD.set_network(net_name, **set_network_dic)
  
-     # If specified, load Deep SVDD model (radius R, center c, network weights, and possibly autoencoder weights)
-     if load_model:
+    # If specified, load Deep SVDD model (radius R, center c, network weights, and possibly autoencoder weights)
+    if load_model:
         deep_SVDD.load_model(model_path=load_model, load_ae=True)
         logger.info('Loading model from %s.' % load_model)
 
-     logger.info('Pretraining: %s' % pretrain)
-     if pretrain:
+    logger.info('Pretraining: %s' % pretrain)
+    if pretrain:
         # Log pretraining details
         logger.info('Pretraining optimizer: %s' % cfg.settings['ae_optimizer_name'])
         logger.info('Pretraining learning rate: %g' % cfg.settings['ae_lr'])
@@ -194,16 +194,16 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
                            n_jobs_dataloader=n_jobs_dataloader, 
                            **set_network_dic)
 
-     # Log training details
-     logger.info('Training optimizer: %s' % cfg.settings['optimizer_name'])
-     logger.info('Training learning rate: %g' % cfg.settings['lr'])
-     logger.info('Training epochs: %d' % cfg.settings['n_epochs'])
-     logger.info('Training learning rate scheduler milestones: %s' % (cfg.settings['lr_milestone'],))
-     logger.info('Training batch size: %d' % cfg.settings['batch_size'])
-     logger.info('Training weight decay: %g' % cfg.settings['weight_decay'])
+    # Log training details
+    logger.info('Training optimizer: %s' % cfg.settings['optimizer_name'])
+    logger.info('Training learning rate: %g' % cfg.settings['lr'])
+    logger.info('Training epochs: %d' % cfg.settings['n_epochs'])
+    logger.info('Training learning rate scheduler milestones: %s' % (cfg.settings['lr_milestone'],))
+    logger.info('Training batch size: %d' % cfg.settings['batch_size'])
+    logger.info('Training weight decay: %g' % cfg.settings['weight_decay'])
 
      # Train model on dataset
-     deep_SVDD.train(dataset,
+    deep_SVDD.train(dataset,
                     optimizer_name=cfg.settings['optimizer_name'],
                     lr=cfg.settings['lr'],
                     n_epochs=cfg.settings['n_epochs'],
@@ -213,39 +213,39 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
                     device=device,
                     n_jobs_dataloader=n_jobs_dataloader)
 
-     # Test model
-     deep_SVDD.test(dataset, device=device, n_jobs_dataloader=n_jobs_dataloader)
+    # Test model
+    deep_SVDD.test(dataset, device=device, n_jobs_dataloader=n_jobs_dataloader)
 
-     # Plot most anomalous and most normal (within-class) test samples
-     indices, labels, scores = zip(*deep_SVDD.results['test_scores'])
-     indices, labels, scores = np.array(indices), np.array(labels), np.array(scores)
-     #idx_sorted = indices[labels == 0][np.argsort(scores[labels == 0])]  # sorted from lowest to highest anomaly score
+    # Plot most anomalous and most normal (within-class) test samples
+    indices, labels, scores = zip(*deep_SVDD.results['test_scores'])
+    indices, labels, scores = np.array(indices), np.array(labels), np.array(scores)
+    #idx_sorted = indices[labels == 0][np.argsort(scores[labels == 0])]  # sorted from lowest to highest anomaly score
 
-     # Save results, model, and configuration
-     deep_SVDD.save_results(export_json=xp_path + '/results_' + cfg.settings['network_name'] + '_zdim_' + str(_z) + '.json')
-     deep_SVDD.save_model(export_model=xp_path + '/model_' + cfg.settings['network_name']  + '_zdim_' + str(_z) + '.tar', save_ae=False)
-     cfg.save_config(export_json=xp_path + '/config_' + cfg.settings['network_name'] + '_zdim_' + str(_z) + '.json')
+    # Save results, model, and configuration
+    deep_SVDD.save_results(export_json=xp_path + '/results_' + cfg.settings['network_name']+ '.json') # + '_zdim_' + str(_z) + '.json')
+    deep_SVDD.save_model(export_model=xp_path + '/model_' + cfg.settings['network_name']+ '.tar', save_ae=False) #  + '_zdim_' + str(_z) + '.tar', save_ae=False)
+    cfg.save_config(export_json=xp_path + '/config_' + cfg.settings['network_name']+ '.json') # + '_zdim_' + str(_z) + '.json')
 
-     #_, labels, scores = zip(*deep_SVDD.results)
-     #labels = np.array(labels)
-     #scores = np.array(scores)
+    #_, labels, scores = zip(*deep_SVDD.results)
+    #labels = np.array(labels)
+    #scores = np.array(scores)
 
-     mask_bkg = (labels == 0)
-     mask_sgn = (labels == 1)
-     scores_bkg = scores[mask_bkg]
-     scores_sgn = scores[mask_sgn]
+    mask_bkg = (labels == 0)
+    mask_sgn = (labels == 1)
+    scores_bkg = scores[mask_bkg]
+    scores_sgn = scores[mask_sgn]
 
-     number_bins = 100
-     plot_loghist(scores_bkg, bins=number_bins, alpha=0.3)
-     plot_loghist(scores_sgn, bins=number_bins, alpha=0.7)  
-     plt.legend(['bkg', 'sgn'])
-     plt.xlabel('scores')
+    number_bins = 100
+    plot_loghist(scores_bkg, bins=number_bins, alpha=0.3)
+    plot_loghist(scores_sgn, bins=number_bins, alpha=0.7)  
+    plt.legend(['bkg', 'sgn'])
+    plt.xlabel('scores')
     
-     plt.savefig(xp_path + '/scores_' + cfg.settings['network_name'] + '_zdim_' + str(_z) + '.pdf')
+    plt.savefig(xp_path + '/scores_' + cfg.settings['network_name']+ '.pdf') # + '_zdim_' + str(_z) + '.pdf')
 
-     wandb.finish()
+    wandb.finish()
 
-     del deep_SVDD
+    del deep_SVDD
 
 if __name__ == '__main__':
 
