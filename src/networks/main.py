@@ -2,6 +2,7 @@ from .mnist_LeNet import MNIST_LeNet, MNIST_LeNet_Autoencoder
 from .cifar10_LeNet import CIFAR10_LeNet, CIFAR10_LeNet_Autoencoder
 from .cifar10_LeNet_elu import CIFAR10_LeNet_ELU, CIFAR10_LeNet_ELU_Autoencoder
 from .ftops_ptransformer import ParticleTransformer
+from .ftops_Mlp import FTOPS_Mlp
 
 def build_network(net_name, 
                  input_dim,
@@ -10,7 +11,7 @@ def build_network(net_name,
                  # network configurations
                  embed_dims=[128, 512, 128],
                  pair_embed_dims=[64, 64, 64],
-#Divide by four, divisble by 8, leave num_layers to 2 
+                 #Divide by four, divisble by 8, leave num_layers to 2 
                  num_heads=8,
                  num_layers=8,
                  num_cls_layers=2,
@@ -28,7 +29,7 @@ def build_network(net_name,
                  **kwargs):
     """Builds the neural network."""
 
-    implemented_networks = ('mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU', 'ftops_Transformer')
+    implemented_networks = ('mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU', 'ftops_Transformer', 'ftops_Mlp')
     assert net_name in implemented_networks
 
     net = None
@@ -62,7 +63,10 @@ def build_network(net_name,
                  trim,
                  for_inference,
                  use_amp,
-                 **kwargs)    
+                 **kwargs)  
+
+    if net_name == 'ftops_Mlp':
+        net = FTOPS_Mlp(**kwargs)  
 
     return net
 

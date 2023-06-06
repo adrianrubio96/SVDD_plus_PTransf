@@ -328,7 +328,7 @@ class ParticleTransformer(BaseNet):
 
     def __init__(self,
                  input_dim,
-                 num_classes,
+                 rep_dim,
                  aux_dim,
                  # network configurations
                  embed_dims,
@@ -350,7 +350,7 @@ class ParticleTransformer(BaseNet):
         super().__init__(**kwargs)
 
         #Used internally
-        self.rep_dim = num_classes
+        self.rep_dim = rep_dim
         self.trim = trim
         self.for_inference = for_inference
         self.use_amp = use_amp
@@ -393,7 +393,7 @@ class ParticleTransformer(BaseNet):
             for out_dim, drop_rate in fc_params:
                 fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
                 in_dim = out_dim
-            fcs.append(nn.Linear(in_dim, num_classes, bias=False))
+            fcs.append(nn.Linear(in_dim, rep_dim, bias=False))
             self.fc = nn.Sequential(*fcs)
         else:
             self.fc = None

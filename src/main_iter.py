@@ -27,7 +27,7 @@ def plot_loghist(x, bins, alpha):
 @click.command()
 @click.option('--network_name', type=str, default='fcn_2l_32_16', help='Name of the network')
 @click.argument('dataset_name', type=click.Choice(['mnist', 'cifar10', '4tops']))
-@click.argument('net_name', type=click.Choice(['mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU','ftops_Transformer']))
+@click.argument('net_name', type=click.Choice(['mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU','ftops_Transformer','ftops_Mlp']))
 @click.argument('xp_path', type=click.Path(exists=True))
 @click.argument('data_path', type=click.Path(exists=True))
 @click.option('--load_config', type=click.Path(exists=True), default=None,
@@ -141,7 +141,8 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     for data in train_loader:
         inputs, _, _ = data
         break
-    num_features = 12 #inputs.shape[1]
+    num_features = inputs.shape[1]
+    print('num_features', num_features)
 
     # Pass through keyboard num of dimensions and feautures via dictionary
     # to set_network
@@ -161,7 +162,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     pair_embed_dims = 64  
     fc_nodes = 64   
 
-    set_network_dic = {'num_classes': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
+    set_network_dic = {'num_features': num_feature, 'num_classes': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(cfg.settings['objective'], cfg.settings['nu'])
