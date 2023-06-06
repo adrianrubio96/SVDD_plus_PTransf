@@ -155,14 +155,12 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     # Start a W&B run
     wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
 
-    #set_network_dic = {'num_features':num_features, 'rep_dim': _z}
-
     input_dim = 12
     embed_dims = 128
     pair_embed_dims = 64  
     fc_nodes = 64   
 
-    set_network_dic = {'num_features': num_feature, 'num_classes': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
+    set_network_dic = {'num_features': num_feature, 'rep_dim': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(cfg.settings['objective'], cfg.settings['nu'])
