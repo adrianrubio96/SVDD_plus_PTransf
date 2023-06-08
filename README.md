@@ -23,11 +23,14 @@ pip install -r requirements.txt
 ## Run a training
 Interactively, you can use the `run.sh` script in the `src` directory, in which the following command would be run:
 ```
-gpurun python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /path/to/input/h5/ --objective one-class --lr 0.0001 --n_epochs 5 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --pretrain False --network_name ParT_default_5
+gpurun python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /path/to/input/h5/DarkMachines.h5 --objective one-class --lr 0.0001 --n_epochs 5 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --pretrain False --network_name ParT_default_5
 ```
 
-Running on batch, longer trainings can be achieved. Actually, the default training will loop over a set of latent space dimensions (2, 5, 10, 20, 25),
-which will be saved as independent trainings.
+To run on batch, the `batchHyper.py` script creates a folder with .sh jobs tu be run in parallel together with the corresponding submission script. This is useful to parallelise jobs when needed to scan over different hyperparameters. To scan over learning rates and batch size:
+```
+python batchHyper.py --learning-rate 1e-3,1e-4,1e-5 --batch-size 50,500,5000 --folder-name ParT-scan-test --default ParT_DarkM_v11_epochs100_lr1e-4_batch500_wdecay0.5e-6_zdim10-test
+```
+where the string provided in the `--default` option will set the default parametes, separated by "_". This syntax might be optimised soon.
 
 ## WANDB framework for metrics
 The output of the different trainings can be analised using the WANDB (Weights AND Biases) framework.
