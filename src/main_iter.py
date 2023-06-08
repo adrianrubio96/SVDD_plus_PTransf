@@ -141,8 +141,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     for data in train_loader:
         inputs, _, _ = data
         break
-    num_features = inputs.shape[1]
-    print('num_features', num_features)
+    num_features = 18 #inputs.shape[0]
 
     # Pass through keyboard num of dimensions and feautures via dictionary
     # to set_network
@@ -155,12 +154,12 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     # Start a W&B run
     wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
 
-    input_dim = 12
+    input_dim = 9
     embed_dims = 128
     pair_embed_dims = 64  
     fc_nodes = 64   
 
-    set_network_dic = {'num_features': num_feature, 'rep_dim': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
+    set_network_dic = {'num_features': num_features, 'rep_dim': cfg.settings['rep_dim'][0], 'input_dim': input_dim, 'embed_dims': embed_dims, 'pair_embed_dims': pair_embed_dims, 'fc_nodes': fc_nodes}
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(cfg.settings['objective'], cfg.settings['nu'])

@@ -60,14 +60,16 @@ class DeepSVDD(object):
         self.net_name = net_name
 
         input_dim = kwargs['input_dim']
-        num_classes = kwargs['num_classes']
+        rep_dim = kwargs['rep_dim']
         embed_dims = kwargs['embed_dims']
         pair_embed_dims = kwargs['pair_embed_dims']
         fc_nodes = kwargs['fc_nodes']
+        num_features = kwargs['num_features']
 
-        self.net = build_network(net_name, 
+        self.net = build_network(net_name,
                           input_dim, 
-                          num_classes, 
+                          rep_dim, 
+                          num_features, 
                           aux_dim=2, 
                           trim=False,
                           num_layers=2,

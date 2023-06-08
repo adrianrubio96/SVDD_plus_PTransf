@@ -173,14 +173,21 @@ class PairEmbed(nn.Module):
         self.pairwise_lv_fts = partial(pairwise_lv_fts, eps=eps, for_onnx=for_onnx)
 
         # SM interaction matrix        -  j  jb e- e+ m- m+ g
-        sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0, 0, 0, 0],  # -
-                                      [0, 1, 1, 0, 0, 0, 0, 1],  # j
-                                      [0, 1, 1, 0, 0, 0, 0, 1],  # jb
-                                      [0, 0, 0, 0, 1, 0, 0, 1],  # e-
-                                      [0, 0, 0, 1, 0, 0, 0, 1],  # e+
-                                      [0, 0, 0, 0, 0, 0, 1, 1],  # m-
-                                      [0, 0, 0, 0, 0, 1, 0, 1],  # m+
-                                      [0, 1, 1, 1, 1, 1, 1, 0]]) # g
+        #sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0, 0, 0, 0],  # -
+        #                              [0, 1, 1, 0, 0, 0, 0, 1],  # j
+        #                              [0, 1, 1, 0, 0, 0, 0, 1],  # jb
+        #                              [0, 0, 0, 0, 1, 0, 0, 1],  # e-
+        #                              [0, 0, 0, 1, 0, 0, 0, 1],  # e+
+        #                              [0, 0, 0, 0, 0, 0, 1, 1],  # m-
+        #                              [0, 0, 0, 0, 0, 1, 0, 1],  # m+
+        #                              [0, 1, 1, 1, 1, 1, 1, 0]]) # g
+
+        # SM int. matrix for DarkM v11 -  j  jb l g
+        sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0],  # -
+                                      [0, 1, 1, 0, 1],  # j
+                                      [0, 1, 1, 1, 1],  # jb
+                                      [0, 0, 1, 1, 1],  # l
+                                      [0, 1, 1, 1, 0]]) # g
 
         self.register_buffer("sm_int_matrix", sm_int_matrix)
         
@@ -443,7 +450,7 @@ class ParticleTransformer(BaseNet):
 
             padding_mask = ~mask.squeeze(1)  # (N, P)
 
-        with torch.cuda.amp.autocast(enabled=self.use_amp):
+        with torch.cuda.amp.autocast(enabled=self.use_amp):  
             # input embedding
             x = self.embed(x).masked_fill(~mask.permute(2, 0, 1), 0)  # (P, N, C)
             attn_mask = None
@@ -470,7 +477,7 @@ class ParticleTransformer(BaseNet):
             output = self.fc(x_cls)
             if self.for_inference:
                 output = torch.softmax(output, dim=1)
-            # print('output:\n', output)
+                
             return output
 
 

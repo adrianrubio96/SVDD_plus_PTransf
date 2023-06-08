@@ -15,13 +15,22 @@ def convert_data(data):
     n_data = data.shape[0]
 
     # One-hot encoding for ids
-    data_ids = torch.nn.functional.one_hot(data[:,:18].long())
+    #print("data[0,:18]: ", data[0,:18])
+    # Get maximum value of data[:,:18]
+    data_maxs = data[:,:18].max(axis=0)
+    #print("data_maxs: ", data_maxs)
+    #print("data[6,:18]: ", data[6,:])
+
+    data_ids = torch.nn.functional.one_hot(data[:,:18].long()).float()
+    #print("data_ids.shape: ", data_ids.shape)
+    #print("data_ids: ", data_ids[0,:,:])
 
     # MET data
     data_aux = data[:,18:20]
 
     # Particle momenta in E, pt, eta, phi
     data_momenta = data[:, 20:].reshape(data.shape[0], 18, 4)
+    #print("data_momenta.shape: ", data_momenta.shape)
 
     # Particle data for interaction term
     data_four_vec = torch.zeros_like(data_momenta)
@@ -33,16 +42,20 @@ def convert_data(data):
     # Particle ids for interaction term
     data_id_int = data[:,:18].long()
 
+
     # Set back to zero
     data_four_vec[data_momenta == 0.] = 0.
 
     # Transpose 
     data_ids = torch.transpose(data_ids, 1, 2)
+    #print("data_ids_transpose.shape: ", data_ids.shape)
     data_momenta = torch.transpose(data_momenta, 1, 2)
+    #print("data_momenta_transpose.shape: ", data_momenta.shape)
     data_four_vec = torch.transpose(data_four_vec, 1, 2)
 
     # Tokens are concat of momenta and ids
     data_tokens = torch.cat((data_momenta, data_ids), dim=1)
+    #print("data_momenta_and_ids.shape: ", data_tokens.shape)
 
     # Generate padding mask
     data_mask = (data_momenta[:,0,:] != 0.).unsqueeze(1)
@@ -57,14 +70,16 @@ class FTOPS():
         self.mode = mode
 
         #root = '/lustre/ific.uv.es/ml/ific005/projects/4tops/data/h5/4top_data_unsupervised/4tops.h5'
-        root = '/lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/data/4tops.h5'
-
+        #root = '/lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/data/4tops.h5'
+        print("Input file: ", root)
         hf = h5py.File(root, 'r')
 
         if self.mode == 'train':
          train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
+         #print("train_data.shape", train_data.shape)
          self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
          data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train = convert_data(train_data)
+         #print("data_tokens_train.shape", data_tokens_train.shape)
          self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train)
         if self.mode == 'validation':
          val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
@@ -115,6 +130,7 @@ class FTOPS_Dataset(BaseADDataset):
     def loaders(self, batch_size: int, shuffle_train=True, shuffle_test=False, num_workers: int = 0) -> (
             DataLoader, DataLoader):
         train_loader = DataLoader(dataset=self.train_set, batch_size=batch_size, shuffle=shuffle_train, num_workers=num_workers)
+        print("train_loader", train_loader)
         val_loader = DataLoader(dataset=self.val_set, batch_size=batch_size, shuffle=shuffle_train, num_workers=num_workers)
         test_loader = DataLoader(dataset=self.test_set, batch_size=batch_size, shuffle=shuffle_test, num_workers=num_workers)
         return train_loader, val_loader, test_loader

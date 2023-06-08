@@ -6,7 +6,8 @@ from .ftops_Mlp import FTOPS_Mlp
 
 def build_network(net_name, 
                  input_dim,
-                 num_classes=None,
+                 rep_dim=None,
+                 num_features=None,
                  aux_dim=None,
                  # network configurations
                  embed_dims=[128, 512, 128],
@@ -42,10 +43,10 @@ def build_network(net_name,
 
     if net_name == 'cifar10_LeNet_ELU':
         net = CIFAR10_LeNet_ELU()
-
+    
     if net_name == 'ftops_Transformer':
         net = ParticleTransformer(input_dim,
-                 num_classes,
+                 rep_dim,
                  aux_dim,
                  # network configurations
                  embed_dims,
@@ -66,7 +67,10 @@ def build_network(net_name,
                  **kwargs)  
 
     if net_name == 'ftops_Mlp':
-        net = FTOPS_Mlp(**kwargs)  
+        net = FTOPS_Mlp(num_features,
+                 rep_dim,
+                 aux_dim,
+                 **kwargs)  
 
     return net
 
