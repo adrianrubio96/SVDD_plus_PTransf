@@ -59,7 +59,7 @@ def main ():
 def createShell(hypname, hypvalue, default_name, batchFolder, extraCommand):
 
     # Set default command to run
-    command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-4 --n_epochs 100 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
+    command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-3 --n_epochs 100 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
 
     # Set specific name
     default_hyps = default_name.split("_")
@@ -77,8 +77,8 @@ def createShell(hypname, hypvalue, default_name, batchFolder, extraCommand):
     shellName = "%s/%s.sh" % (batchFolder, runname)
     runningFolder = os.getcwd()
 
-    # Set specific command
-    if hypname=="lr": command = command.replace("--lr 1e-4", "--lr %s" % hypvalue)
+    # Modify hyperparameter in command
+    if hypname=="lr": command = command.replace("--lr 1e-3", "--lr %s" % hypvalue)
     elif hypname=="epochs": command = command.replace("--n_epochs 100", "--n_epochs %s" % hypvalue)
     elif hypname=="milestone": command = command.replace("--lr_milestone 50", "--lr_milestone %s" % hypvalue)
     elif hypname=="wdecay": command = command.replace("--weight_decay 0.5e-6", "--weight_decay %s" % hypvalue)
