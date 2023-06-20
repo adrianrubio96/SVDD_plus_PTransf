@@ -407,7 +407,8 @@ class ParticleTransformer(BaseNet):
 
         # init
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims[-1]), requires_grad=True)
-        trunc_normal_(self.cls_token, std=.02)
+        #trunc_normal_(self.cls_token, std=.02)
+        self.cls_token = nn.init.xavier_uniform_(self.cls_token, gain=1.0)
 
     @torch.jit.ignore
     def no_weight_decay(self):
