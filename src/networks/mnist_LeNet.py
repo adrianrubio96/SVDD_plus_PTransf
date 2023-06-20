@@ -4,7 +4,6 @@ import torch.nn.functional as F
 
 from base.base_net import BaseNet
 
-
 class MNIST_LeNet(BaseNet):
 
     def __init__(self):

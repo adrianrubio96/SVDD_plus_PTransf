@@ -35,6 +35,9 @@ class DeepSVDD(object):
         self.R = 0.0  # hypersphere radius R
         self.c = None  # hypersphere center c
 
+        #rruiz
+        #self.c = torch.tensor([3, 7, 8, 9, 1])
+
         self.net_name = None
         self.net = None  # neural network \phi
 
@@ -52,10 +55,10 @@ class DeepSVDD(object):
             'test_scores': None,
         }
 
-    def set_network(self, net_name):
+    def set_network(self, net_name, **kwargs):
         """Builds the neural network \phi."""
         self.net_name = net_name
-        self.net = build_network(net_name)
+        self.net = build_network(net_name, **kwargs)
 
     def train(self, dataset: BaseADDataset, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 50,
               lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
@@ -63,6 +66,7 @@ class DeepSVDD(object):
         """Trains the Deep SVDD model on the training data."""
 
         self.optimizer_name = optimizer_name
+
         self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu, optimizer_name, lr=lr,
                                        n_epochs=n_epochs, lr_milestones=lr_milestones, batch_size=batch_size,
                                        weight_decay=weight_decay, device=device, n_jobs_dataloader=n_jobs_dataloader)
@@ -87,14 +91,15 @@ class DeepSVDD(object):
 
     def pretrain(self, dataset: BaseADDataset, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 100,
                  lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
-                 n_jobs_dataloader: int = 0):
+                 n_jobs_dataloader: int = 0, **kwargs):
         """Pretrains the weights for the Deep SVDD network \phi via autoencoder."""
 
-        self.ae_net = build_autoencoder(self.net_name)
+        self.ae_net = build_autoencoder(self.net_name, **kwargs)
         self.ae_optimizer_name = optimizer_name
         self.ae_trainer = AETrainer(optimizer_name, lr=lr, n_epochs=n_epochs, lr_milestones=lr_milestones,
                                     batch_size=batch_size, weight_decay=weight_decay, device=device,
                                     n_jobs_dataloader=n_jobs_dataloader)
+
         self.ae_net = self.ae_trainer.train(dataset, self.ae_net)
         self.ae_trainer.test(dataset, self.ae_net)
         self.init_network_weights_from_pretraining()

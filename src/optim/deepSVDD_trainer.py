@@ -4,14 +4,21 @@ from base.base_net import BaseNet
 from torch.utils.data.dataloader import DataLoader
 from sklearn.metrics import roc_auc_score
 
+# import EarlyStopping
+from pytorchtools import EarlyStopping
+
 import logging
 import time
 import torch
 import torch.optim as optim
 import numpy as np
 
+import wandb
 
 class DeepSVDDTrainer(BaseTrainer):
+
+    # Start a W&B run
+    #wandb.init(project='test') 
 
     def __init__(self, objective, R, c, nu: float, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 150,
                  lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
@@ -36,18 +43,19 @@ class DeepSVDDTrainer(BaseTrainer):
         self.test_time = None
         self.test_scores = None
 
-    def train(self, dataset: BaseADDataset, net: BaseNet):
+    def train_org(self, dataset: BaseADDataset, net: BaseNet):
         logger = logging.getLogger()
 
         # Set device for network
         net = net.to(self.device)
 
         # Get train data loader
-        train_loader, _ = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
+        train_loader, _, _ = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
 
         # Set optimizer (Adam optimizer for now)
         optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
                                amsgrad=self.optimizer_name == 'amsgrad')
+
 
         # Set learning rate scheduler
         scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
@@ -62,17 +70,19 @@ class DeepSVDDTrainer(BaseTrainer):
         logger.info('Starting training...')
         start_time = time.time()
         net.train()
+
         for epoch in range(self.n_epochs):
 
-            scheduler.step()
-            if epoch in self.lr_milestones:
-                logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
+            #scheduler.step()
+            #if epoch in self.lr_milestones:
+            #    logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
 
             loss_epoch = 0.0
             n_batches = 0
             epoch_start_time = time.time()
             for data in train_loader:
                 inputs, _, _ = data
+
                 inputs = inputs.to(self.device)
 
                 # Zero the network parameter gradients
@@ -80,6 +90,7 @@ class DeepSVDDTrainer(BaseTrainer):
 
                 # Update network parameters via backpropagation: forward + backward + optimize
                 outputs = net(inputs)
+ 
                 dist = torch.sum((outputs - self.c) ** 2, dim=1)
                 if self.objective == 'soft-boundary':
                     scores = dist - self.R ** 2
@@ -100,6 +111,138 @@ class DeepSVDDTrainer(BaseTrainer):
             epoch_train_time = time.time() - epoch_start_time
             logger.info('  Epoch {}/{}\t Time: {:.3f}\t Loss: {:.8f}'
                         .format(epoch + 1, self.n_epochs, epoch_train_time, loss_epoch / n_batches))
+            wandb.log({"loss": np.log10(loss_epoch / n_batches)}) 
+
+            scheduler.step()
+            if epoch in self.lr_milestones:
+                #logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
+                logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_last_lr()[0]))
+
+
+        self.train_time = time.time() - start_time
+        logger.info('Training time: %.3f' % self.train_time)
+
+        logger.info('Finished training.')
+
+        return net
+
+    def train(self, dataset: BaseADDataset, net: BaseNet):
+        logger = logging.getLogger()
+
+        # Set device for network
+        net = net.to(self.device)
+
+        # To automatically log gradients
+        wandb.watch(net, log_freq=100)
+
+        # Get train data loader
+        train_loader, val_loader, _ = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
+
+        # Set optimizer (Adam optimizer for now)
+        optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
+                               amsgrad=self.optimizer_name == 'amsgrad')
+
+
+        # Set learning rate scheduler
+        #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
+
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+
+        # initialize the early_stopping object
+        early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
+
+        # Initialize hypersphere center c (if c not loaded)
+        if self.c is None:
+            logger.info('Initializing center c...')
+            self.c = self.init_center_c(train_loader, net)
+            logger.info('Center c initialized.')
+ 
+        #self.c = torch.tensor([10, 10, 10, 10, 10]).to(self.device)
+        # Training
+        logger.info('Starting training...')
+        start_time = time.time()
+
+        for epoch in range(self.n_epochs):
+            net.train()
+            #scheduler.step()
+            #if epoch in self.lr_milestones:
+            #    logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
+
+            loss_epoch = 0.0
+            n_batches_train = 0
+            epoch_start_time = time.time()
+            for data in train_loader:
+                inputs, _, _ = data
+
+                inputs = inputs.to(self.device)
+
+                # Zero the network parameter gradients
+                optimizer.zero_grad()
+
+                # Update network parameters via backpropagation: forward + backward + optimize
+                outputs = net(inputs)
+ 
+                dist = torch.sum((outputs - self.c) ** 2, dim=1)
+                if self.objective == 'soft-boundary':
+                    scores = dist - self.R ** 2
+                    loss = self.R ** 2 + (1 / self.nu) * torch.mean(torch.max(torch.zeros_like(scores), scores))
+                else:
+                    loss = torch.mean(dist)
+                loss.backward()
+                optimizer.step()
+
+                # Update hypersphere radius R on mini-batch distances
+                if (self.objective == 'soft-boundary') and (epoch >= self.warm_up_n_epochs):
+                    self.R.data = torch.tensor(get_radius(dist, self.nu), device=self.device)
+
+                loss_epoch += loss.item()
+                n_batches_train += 1
+
+            # log epoch statistics
+            epoch_train_time = time.time() - epoch_start_time
+            logger.info('  Epoch {}/{}\t Time: {:.3f}\t Loss: {:.8f}'
+                        .format(epoch + 1, self.n_epochs, epoch_train_time, loss_epoch / n_batches_train))
+            #wandb.log({"loss": np.log10(loss_epoch / n_batches_train)}) 
+
+            #scheduler.step()
+            #if epoch in self.lr_milestones:
+                #logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
+            #    logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_last_lr()[0]))
+
+            net.eval()            
+            with torch.no_grad():
+             validation_loss = 0
+             val_data_size = 0
+             n_batches_val = 0
+             for data in val_loader:
+                inputs, _, _ = data
+                inputs = inputs.to(self.device)
+                outputs = net(inputs)
+                dist = torch.sum((outputs - self.c) ** 2, dim=1)
+                if self.objective == 'soft-boundary':
+                    scores = dist - self.R ** 2
+                    loss = self.R ** 2 + (1 / self.nu) * torch.mean(torch.max(torch.zeros_like(scores), scores))
+                else:
+                    loss = torch.mean(dist)
+                val_data_size += inputs.shape[0]
+                validation_loss += loss.item()
+                n_batches_val += 1
+
+             logger.info('  Validation Loss: {:.8f}'
+                         .format(validation_loss /len(val_loader))) #val_data_size)) 
+ 
+             wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader))})
+
+            #If LR scehdule is on
+            early_stopping(validation_loss/len(val_loader), net)
+        
+            if early_stopping.early_stop:
+              print("Early stopping")
+              break
+
+            scheduler.step(validation_loss / len(val_loader))
+
+            wandb.log({"lr": optimizer.param_groups[0]['lr']})
 
         self.train_time = time.time() - start_time
         logger.info('Training time: %.3f' % self.train_time)
@@ -115,7 +258,7 @@ class DeepSVDDTrainer(BaseTrainer):
         net = net.to(self.device)
 
         # Get test data loader
-        _, test_loader = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
+        _, _, test_loader = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
 
         # Testing
         logger.info('Starting testing...')
@@ -148,8 +291,34 @@ class DeepSVDDTrainer(BaseTrainer):
         labels = np.array(labels)
         scores = np.array(scores)
 
+        mask_bkg = (labels == 0)
+        mask_sgn = (labels == 1)
+        scores_bkg = np.log10(scores[mask_bkg])
+        scores_sgn = np.log10(scores[mask_sgn])
+
+        data_bkg = [[s] for s in scores_bkg]
+
+        table_bkg = wandb.Table(data=data_bkg, columns=["scores"])
+        hist_bkg = wandb.plot.histogram(table_bkg, "scores", 
+ 	  title="Prediction Score Distribution background")
+
+        data_sgn = [[s] for s in scores_sgn]
+
+        table_sgn = wandb.Table(data=data_sgn, columns=["scores"])
+        hist_sgn = wandb.plot.histogram(table_sgn, "scores", 
+ 	  title="Prediction Score Distribution Signal")
+
+        wandb.log({'histogram_1': hist_bkg, 'histogram_2': hist_sgn}) 
+
+        #combined = np.stack((scores, labels), axis=-1)
+        #np.save('scores', combined)
+
         self.test_auc = roc_auc_score(labels, scores)
         logger.info('Test set AUC: {:.2f}%'.format(100. * self.test_auc))
+
+        wandb.log({"AUC": 100*self.test_auc})
+
+        wandb.log({"roc": wandb.plot.roc_curve(y_true=labels, y_probas=scores)})
 
         logger.info('Finished testing.')
 
