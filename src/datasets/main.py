@@ -2,6 +2,7 @@ from .mnist import MNIST_Dataset
 from .cifar10 import CIFAR10_Dataset
 from .ftops import FTOPS_Dataset
 
+
 def load_dataset(dataset_name, data_path, normal_class):
     """Loads the dataset."""
 
