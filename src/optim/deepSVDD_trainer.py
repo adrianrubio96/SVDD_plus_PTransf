@@ -5,7 +5,7 @@ from torch.utils.data.dataloader import DataLoader
 from sklearn.metrics import roc_auc_score
 
 # import EarlyStopping
-from pytorchtools import EarlyStopping
+#from pytorchtools import EarlyStopping
 
 import logging
 import time
@@ -149,7 +149,7 @@ class DeepSVDDTrainer(BaseTrainer):
         scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
 
         # initialize the early_stopping object
-        early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
+        #early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
 
         # Initialize hypersphere center c (if c not loaded)
         if self.c is None:
@@ -234,11 +234,11 @@ class DeepSVDDTrainer(BaseTrainer):
              wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader))})
 
             #If LR scehdule is on
-            early_stopping(validation_loss/len(val_loader), net)
+            #early_stopping(validation_loss/len(val_loader), net)
         
-            if early_stopping.early_stop:
-              print("Early stopping")
-              break
+            #if early_stopping.early_stop:
+            #  print("Early stopping")
+            #  break
 
             scheduler.step(validation_loss / len(val_loader))
 
@@ -318,7 +318,7 @@ class DeepSVDDTrainer(BaseTrainer):
 
         wandb.log({"AUC": 100*self.test_auc})
 
-        wandb.log({"roc": wandb.plot.roc_curve(y_true=labels, y_probas=scores)})
+        #wandb.log({"roc": wandb.plot.roc_curve(y_true=labels, y_probas=scores)})
 
         logger.info('Finished testing.')
 
