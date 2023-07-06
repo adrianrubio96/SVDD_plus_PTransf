@@ -1,4 +1,5 @@
 import os
+import glob
 import click
 import torch
 import logging
@@ -15,11 +16,23 @@ from datasets.main import load_dataset
 import wandb
 
 
-def plot_loghist(x, bins, alpha):
-  hist, bins = np.histogram(x, bins=bins)
-  logbins = np.logspace(np.log10(bins[0]),np.log10(bins[-1]),len(bins))
-  plt.hist(x, bins=logbins, alpha=alpha)
-  plt.xscale('log')
+def plot_loghist(x, bins, alpha, normalised=True, logX=False):
+    # Make histograms
+    hist, bins = np.histogram(x, bins=bins)
+
+    # Normalise if specified
+    if normalised:
+        hist = hist / float(np.sum(hist))
+    
+    # Set log scale for X axis
+    if logX:
+        bins_ = np.logspace(np.log10(bins[0]),np.log10(bins[-1]),len(bins))
+        plt.hist(x, bins=bins_, alpha=alpha)
+        plt.xscale('log')
+    else:
+        bins_ = bins
+        plt.hist(x, bins=bins_, alpha=alpha)
+
 
 ################################################################################
 # Settings
@@ -239,7 +252,26 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     plt.legend(['bkg', 'sgn'])
     plt.xlabel('scores')
     
-    plt.savefig(xp_path + '/scores_' + cfg.settings['network_name']+ '.pdf') # + '_zdim_' + str(_z) + '.pdf')
+    # Save scores plot adding trial number
+
+    ## Deine plot name
+    plotname = xp_path + '/scores_' + cfg.settings['network_name']+ '_trial_*.pdf' # + '_zdim_' + str(_z) + '.pdf'
+
+    ## Get list of all files with such name
+    plot_list = glob.glob(plotname)
+
+    ## Get list of trials
+    trial_list = [int(plot.split('_')[-1].split('.')[0]) for plot in plot_list if 'trial' in plot]
+
+    ## Get trial number
+    trial_number = 0
+    if len(trial_list) > 0:
+        trial_number = max(trial_list) + 1 
+
+    ## Locate in plot name
+    plotname = plotname.replace('*', str(trial_number))
+    
+    plt.savefig(plotname)
 
     wandb.finish()
 
