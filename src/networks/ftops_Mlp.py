@@ -82,4 +82,3 @@ class FTOPS_Mlp_Autoencoder(BaseNet):
         return x
 
 
-

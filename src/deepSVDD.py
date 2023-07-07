@@ -58,7 +58,29 @@ class DeepSVDD(object):
     def set_network(self, net_name, **kwargs):
         """Builds the neural network \phi."""
         self.net_name = net_name
-        self.net = build_network(net_name, **kwargs)
+
+        if net_name == 'ftops_Mlp':
+            self.net = build_network(net_name, **kwargs)
+
+        if net_name == 'ftops_Transformer':
+            input_dim = kwargs['input_dim']
+            rep_dim = kwargs['rep_dim']
+            embed_dims = kwargs['embed_dims']
+            pair_embed_dims = kwargs['pair_embed_dims']
+            fc_nodes = kwargs['fc_nodes']
+            num_features = kwargs['num_features']
+    
+            self.net = build_network(net_name,
+                          input_dim, 
+                          rep_dim, 
+                          num_features, 
+                          aux_dim=2, 
+                          trim=False,
+                          num_layers=2,
+                          embed_dims=[embed_dims, 4*embed_dims, embed_dims],
+                          pair_embed_dims=[pair_embed_dims, pair_embed_dims, pair_embed_dims],
+                          fc_params=[[fc_nodes, 0.1], [4*fc_nodes, 0.1], [fc_nodes, 0.1]],
+                          aux_fc_params=[[32, 0.1], [32, 0.1]])
 
     def train(self, dataset: BaseADDataset, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 50,
               lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
@@ -67,7 +89,7 @@ class DeepSVDD(object):
 
         self.optimizer_name = optimizer_name
 
-        self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu, optimizer_name, lr=lr,
+        self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu, net_name, optimizer_name, lr=lr,
                                        n_epochs=n_epochs, lr_milestones=lr_milestones, batch_size=batch_size,
                                        weight_decay=weight_decay, device=device, n_jobs_dataloader=n_jobs_dataloader)
         # Get the model
@@ -80,7 +102,7 @@ class DeepSVDD(object):
         """Tests the Deep SVDD model on the test data."""
 
         if self.trainer is None:
-            self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu,
+            self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu, net_name,
                                            device=device, n_jobs_dataloader=n_jobs_dataloader)
 
         self.trainer.test(dataset, self.net)
