@@ -71,7 +71,7 @@ class FTOPS():
             self.mode = mode
     
             #root = '/lustre/ific.uv.es/ml/ific005/projects/4tops/data/h5/4top_data_unsupervised/4tops_fcn.h5'
-    
+            print("Input file: ", root)
             hf = h5py.File(root, 'r')
     
             train_data = np.array(hf.get('X_train'), dtype=np.float32)
@@ -159,17 +159,15 @@ class FTOPS():
 
 class FTOPS_Dataset(BaseADDataset):
   
-    def __init__(self, root: str, normal_class=0): 
-     super().__init__(root)
- 
-     self.train_set = FTOPS(root, mode='train')
-     self.val_set = FTOPS(root, mode='validation')
-     self.test_set = FTOPS(root, mode='test')
+    def __init__(self, root: str, normal_class=0, net_name='ftops_Mlp'): 
+        super().__init__(root)
+    
+        self.train_set = FTOPS(root, mode='train', net_name=net_name)
+        self.val_set = FTOPS(root, mode='validation', net_name=net_name)
+        self.test_set = FTOPS(root, mode='test', net_name=net_name)
 
-    def loaders(self, batch_size: int, shuffle_train=True, shuffle_test=False, num_workers: int = 0) -> (
-            DataLoader, DataLoader):
+    def loaders(self, batch_size: int, shuffle_train=True, shuffle_test=False, num_workers: int = 0) -> (DataLoader, DataLoader):
         train_loader = DataLoader(dataset=self.train_set, batch_size=batch_size, shuffle=shuffle_train, num_workers=num_workers)
-        print("train_loader", train_loader)
         val_loader = DataLoader(dataset=self.val_set, batch_size=batch_size, shuffle=shuffle_train, num_workers=num_workers)
         test_loader = DataLoader(dataset=self.test_set, batch_size=batch_size, shuffle=shuffle_test, num_workers=num_workers)
         return train_loader, val_loader, test_loader

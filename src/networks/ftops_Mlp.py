@@ -9,6 +9,9 @@ class FTOPS_Mlp(BaseNet):
     def __init__(self, **kwargs):
         super().__init__()
 
+        # Copy kwargs
+        kwargs = dict(kwargs)
+
         self.num_features = kwargs['num_features'] 
         self.rep_dim = kwargs['rep_dim']
         

@@ -25,7 +25,7 @@ class DeepSVDD(object):
         results: A dictionary to save the results.
     """
 
-    def __init__(self, objective: str = 'one-class', nu: float = 0.1):
+    def __init__(self, net_name: str = 'ftops_Mlp', objective: str = 'one-class', nu: float = 0.1):
         """Inits DeepSVDD with one of the two objectives and hyperparameter nu."""
 
         assert objective in ('one-class', 'soft-boundary'), "Objective must be either 'one-class' or 'soft-boundary'."
@@ -38,7 +38,7 @@ class DeepSVDD(object):
         #rruiz
         #self.c = torch.tensor([3, 7, 8, 9, 1])
 
-        self.net_name = None
+        self.net_name = net_name
         self.net = None  # neural network \phi
 
         self.trainer = None
@@ -55,41 +55,52 @@ class DeepSVDD(object):
             'test_scores': None,
         }
 
-    def set_network(self, net_name, **kwargs):
+    def set_network(self, **kwargs):
         """Builds the neural network \phi."""
-        self.net_name = net_name
+        #self.net_name = kwargs['net_name']
 
-        if net_name == 'ftops_Mlp':
-            self.net = build_network(net_name, **kwargs)
+        # Make a copy of kwargs to not alter the original dict
+        kwargs = dict(kwargs)
 
-        if net_name == 'ftops_Transformer':
-            input_dim = kwargs['input_dim']
-            rep_dim = kwargs['rep_dim']
-            embed_dims = kwargs['embed_dims']
-            pair_embed_dims = kwargs['pair_embed_dims']
-            fc_nodes = kwargs['fc_nodes']
-            num_features = kwargs['num_features']
+        if self.net_name == 'ftops_Mlp':
+            #num_features = kwargs['num_features']
+            #rep_dim = kwargs['rep_dim']
+            self.net = build_network(
+                          #net_name, 
+                          #num_features, 
+                          **kwargs)
+
+        if self.net_name == 'ftops_Transformer':
+            #input_dim = kwargs['input_dim']
+            #rep_dim = kwargs['rep_dim']
+            #embed_dims = kwargs['embed_dims']
+            #pair_embed_dims = kwargs['pair_embed_dims']
+            #fc_nodes = kwargs['fc_nodes']
+            #num_features = kwargs['num_features']
     
-            self.net = build_network(net_name,
-                          input_dim, 
-                          rep_dim, 
-                          num_features, 
-                          aux_dim=2, 
-                          trim=False,
-                          num_layers=2,
-                          embed_dims=[embed_dims, 4*embed_dims, embed_dims],
-                          pair_embed_dims=[pair_embed_dims, pair_embed_dims, pair_embed_dims],
-                          fc_params=[[fc_nodes, 0.1], [4*fc_nodes, 0.1], [fc_nodes, 0.1]],
-                          aux_fc_params=[[32, 0.1], [32, 0.1]])
+            self.net = build_network(
+                          #net_name,
+                          #input_dim, 
+                          #rep_dim, 
+                          #num_features, 
+                          #aux_dim=2, 
+                          #trim=False,
+                          #num_layers=2,
+                          #embed_dims=[embed_dims, 4*embed_dims, embed_dims],
+                          #pair_embed_dims=[pair_embed_dims, pair_embed_dims, pair_embed_dims],
+                          #fc_params=[[fc_nodes, 0.1], [4*fc_nodes, 0.1], [fc_nodes, 0.1]],
+                          #aux_fc_params=[[32, 0.1], [32, 0.1]],
+                          **kwargs)
 
-    def train(self, dataset: BaseADDataset, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 50,
+    def train(self, dataset: BaseADDataset, net_name: str = 'ftops_Mlp', optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 50,
               lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
               n_jobs_dataloader: int = 0):
         """Trains the Deep SVDD model on the training data."""
 
         self.optimizer_name = optimizer_name
 
-        self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu, net_name, optimizer_name, lr=lr,
+
+        self.trainer = DeepSVDDTrainer(self.objective, self.R, self.c, self.nu, self.net_name, optimizer_name, lr=lr,
                                        n_epochs=n_epochs, lr_milestones=lr_milestones, batch_size=batch_size,
                                        weight_decay=weight_decay, device=device, n_jobs_dataloader=n_jobs_dataloader)
         # Get the model
@@ -98,7 +109,7 @@ class DeepSVDD(object):
         self.c = self.trainer.c.cpu().data.numpy().tolist()  # get list
         self.results['train_time'] = self.trainer.train_time
 
-    def test(self, dataset: BaseADDataset, device: str = 'cuda', n_jobs_dataloader: int = 0):
+    def test(self, dataset: BaseADDataset, net_name: str = 'ftops_Mlp', device: str = 'cuda', n_jobs_dataloader: int = 0):
         """Tests the Deep SVDD model on the test data."""
 
         if self.trainer is None:
@@ -111,7 +122,7 @@ class DeepSVDD(object):
         self.results['test_time'] = self.trainer.test_time
         self.results['test_scores'] = self.trainer.test_scores
 
-    def pretrain(self, dataset: BaseADDataset, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 100,
+    def pretrain(self, dataset: BaseADDataset, net_name: str = 'ftops_Mlp', optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 100,
                  lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
                  n_jobs_dataloader: int = 0, **kwargs):
         """Pretrains the weights for the Deep SVDD network \phi via autoencoder."""
