@@ -62,35 +62,39 @@ class DeepSVDD(object):
         # Make a copy of kwargs to not alter the original dict
         kwargs = dict(kwargs)
 
-        if self.net_name == 'ftops_Mlp':
-            #num_features = kwargs['num_features']
-            #rep_dim = kwargs['rep_dim']
-            self.net = build_network(
-                          #net_name, 
-                          #num_features, 
-                          **kwargs)
+        # Build network
+        self.net = build_network(**kwargs)
 
-        if self.net_name == 'ftops_Transformer':
-            #input_dim = kwargs['input_dim']
-            #rep_dim = kwargs['rep_dim']
-            #embed_dims = kwargs['embed_dims']
-            #pair_embed_dims = kwargs['pair_embed_dims']
-            #fc_nodes = kwargs['fc_nodes']
-            #num_features = kwargs['num_features']
+        #if self.net_name == 'ftops_Mlp':
+        #    num_features = kwargs['num_features']
+        #    rep_dim = kwargs['rep_dim']
+        #    self.net = build_network(
+        #                  net_name, 
+        #                  num_features, 
+        #                  **kwargs)
+
+        #if self.net_name == 'ftops_Transformer':
+        #    input_dim = kwargs['input_dim']
+        #    rep_dim = kwargs['rep_dim']
+        #    embed_dims = kwargs['embed_dims']
+        #    pair_embed_dims = kwargs['pair_embed_dims']
+        #    fc_nodes = kwargs['fc_nodes']
+        #    num_features = kwargs['num_features']
     
-            self.net = build_network(
-                          #net_name,
-                          #input_dim, 
-                          #rep_dim, 
-                          #num_features, 
-                          #aux_dim=2, 
-                          #trim=False,
-                          #num_layers=2,
-                          #embed_dims=[embed_dims, 4*embed_dims, embed_dims],
-                          #pair_embed_dims=[pair_embed_dims, pair_embed_dims, pair_embed_dims],
-                          #fc_params=[[fc_nodes, 0.1], [4*fc_nodes, 0.1], [fc_nodes, 0.1]],
-                          #aux_fc_params=[[32, 0.1], [32, 0.1]],
-                          **kwargs)
+        #    self.net = build_network(
+        #                  net_name,
+        #                  input_dim, 
+        #                  rep_dim, 
+        #                  num_features, 
+        #                  aux_dim=2, 
+        #                  trim=False,
+        #                  num_layers=2,
+        #                  embed_dims=[embed_dims, 4*embed_dims, embed_dims],
+        #                  pair_embed_dims=[pair_embed_dims, pair_embed_dims, pair_embed_dims],
+        #                  fc_params=[[fc_nodes, 0.1], [4*fc_nodes, 0.1], [fc_nodes, 0.1]],
+        #                  aux_fc_params=[[32, 0.1], [32, 0.1]],
+        #                  **kwargs)
+
 
     def train(self, dataset: BaseADDataset, net_name: str = 'ftops_Mlp', optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 50,
               lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',

@@ -198,30 +198,45 @@ class EdgeConvBlock(nn.Module):
 class ParticleNet(nn.Module):
 
     def __init__(self,
-                 input_dims,
-                 num_classes,
-                 conv_params=[(32, 32, 32), (64, 64, 64)],
-                 fc_params=[(128, 0.1)],
-                 aux_dims=None,
-                 aux_fc_params=[(32, 0.1), (32, 0.1)],
-                 pair_embed_dims=[64, 64, 64],
-                 attention_dims=[64, 64, 64],
-                 use_fusion=True,
-                 use_fts_bn=True,
-                 use_counts=True,
-                 for_segmentation=False,
+                 #input_dim,
+                 #num_classes,
+                 #conv_params=[(32, 32, 32), (64, 64, 64)],
+                 #fc_params=[(128, 0.1)],
+                 #aux_dim=None,
+                 #aux_fc_params=[(32, 0.1), (32, 0.1)],
+                 #pair_embed_dims=[64, 64, 64],
+                 #attention_dims=[64, 64, 64],
+                 #use_fusion=True,
+                 #use_fts_bn=True,
+                 #use_counts=True,
+                 #for_segmentation=False,
                  **kwargs):
-        super(ParticleNet, self).__init__(**kwargs)
+        
+        #super(ParticleNet, self).__init__(**kwargs)
+        super().__init__()
+        input_dim = kwargs['input_dim']
+        num_classes = kwargs['rep_dim']
+        conv_params= [(32, 32, 32), (64, 64, 64)]
+        fc_params=[(128, 0.1)]
+        aux_dim=None
+        aux_fc_params=[(32, 0.1), (32, 0.1)]
+        pair_embed_dims=[64, 64, 64]
+        attention_dims=[64, 64, 64]
+        use_fusion=True
+        use_fts_bn=True
+        use_counts=True
+        for_segmentation=False
+
 
         self.use_fts_bn = use_fts_bn
         if self.use_fts_bn:
-            self.bn_fts = nn.BatchNorm1d(input_dims)
+            self.bn_fts = nn.BatchNorm1d(input_dim)
 
         self.use_counts = use_counts
 
         self.edge_convs = nn.ModuleList()
         for idx, channels in enumerate(conv_params):
-            in_feat = input_dims if idx == 0 else conv_params[idx - 1][-1]
+            in_feat = input_dim if idx == 0 else conv_params[idx - 1][-1]
             pair_embed_dim = pair_embed_dims[-1] if pair_embed_dims is not None else None
             self.edge_convs.append(EdgeConvBlock(in_feat=in_feat, out_feats=channels, pair_embed_dim=pair_embed_dim, attention_dims=attention_dims))
 
@@ -244,9 +259,9 @@ class ParticleNet(nn.Module):
 
         self.pair_embed = PairEmbed(pair_embed_dims) if pair_embed_dims is not None else None
 
-        if aux_dims is not None:
+        if aux_dim is not None:
             aux_fcs = []
-            in_dim = aux_dims
+            in_dim = aux_dim
             for out_dim, drop_rate in aux_fc_params:
                 aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim), nn.ReLU(), nn.Dropout(drop_rate)))
                 in_dim = out_dim

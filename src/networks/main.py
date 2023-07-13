@@ -61,7 +61,7 @@ def build_network(
 
     """Builds the neural network."""
 
-    implemented_networks = ('mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU', 'ftops_Transformer', 'ftops_Mlp')
+    implemented_networks = ('mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU', 'ftops_Transformer', 'ftops_Mlp', 'ftops_ParticleNET')
     assert net_name in implemented_networks
 
     net = None
@@ -108,6 +108,9 @@ def build_network(
 
         #net = FTOPS_Mlp(num_features, rep_dim, **kwargs)    
         net = FTOPS_Mlp(**kwargs)
+
+    if net_name == 'ftops_ParticleNET':
+        net = ParticleNET(**kwargs)
 
     return net
 
