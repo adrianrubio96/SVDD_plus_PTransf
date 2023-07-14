@@ -180,6 +180,8 @@ class DeepSVDDTrainer(BaseTrainer):
 
             scheduler.step(validation_loss / len(val_loader))
 
+            wandb.log({"lr": optimizer.param_groups[0]['lr']})
+
         self.train_time = time.time() - start_time
         logger.info('Training time: %.3f' % self.train_time)
 
