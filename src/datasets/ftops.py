@@ -115,10 +115,8 @@ class FTOPS():
     
             if self.mode == 'train':
                 train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
-                #print("train_data.shape", train_data.shape)
                 self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
                 data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train = convert_data(train_data)
-                #print("data_tokens_train.shape", data_tokens_train.shape)
                 self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train)
             if self.mode == 'validation':
                 val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
@@ -130,6 +128,30 @@ class FTOPS():
                 self.test_labels = torch.tensor(hf.get('y_test'), dtype=torch.long)
                 data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, data_mask_test = convert_data(test_data)
                 self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, data_mask_test)
+
+        if net_name == 'ftops_ParticleNET':
+            self.mode = mode
+    
+            #root = '/lustre/ific.uv.es/ml/ific005/projects/4tops/data/h5/4top_data_unsupervised/4tops.h5'
+            #root = '/lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/data/4tops.h5'
+            print("Input file: ", root)
+            hf = h5py.File(root, 'r')
+    
+            if self.mode == 'train':
+                train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
+                self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
+                data_aux_train, data_tokens_train, data_momenta_train, _, data_mask_train = convert_data(train_data)
+                self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_momenta_train, data_mask_train, self.train_labels)
+            if self.mode == 'validation':
+                val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
+                self.val_labels = torch.tensor(hf.get('y_val'), dtype=torch.long)
+                data_aux_val, data_tokens_val, data_momenta_val, _, data_mask_val = convert_data(val_data)
+                self.val_data = torch.utils.data.TensorDataset(data_aux_val,   data_tokens_val,   data_momenta_val, data_mask_val, self.val_labels)
+            if self.mode == 'test':
+                test_data = torch.tensor(np.array(hf.get('X_test')), dtype=torch.float32)
+                self.test_labels = torch.tensor(hf.get('y_test'), dtype=torch.long)
+                data_aux_test, data_tokens_test, data_momenta_test, _, data_mask_test = convert_data(test_data)
+                self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_momenta_test, data_mask_test, self.test_labels)
 
   
     def __len__(self):

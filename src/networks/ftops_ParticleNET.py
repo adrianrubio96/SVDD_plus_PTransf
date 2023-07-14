@@ -1,8 +1,11 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
 from functools import partial
+
+from base.base_net import BaseNet
 
 @torch.jit.script
 def delta_phi(a, b):
@@ -196,6 +199,7 @@ class EdgeConvBlock(nn.Module):
 
 
 class ParticleNet(nn.Module):
+#class ParticleNet(BaseNet):
 
     def __init__(self,
                  #input_dim,
@@ -215,7 +219,7 @@ class ParticleNet(nn.Module):
         #super(ParticleNet, self).__init__(**kwargs)
         super().__init__()
         input_dim = kwargs['input_dim']
-        num_classes = kwargs['rep_dim']
+        self.rep_dim = kwargs['rep_dim']
         conv_params= [(32, 32, 32), (64, 64, 64)]
         fc_params=[(128, 0.1)]
         aux_dim=None
@@ -254,7 +258,7 @@ class ParticleNet(nn.Module):
             else:
                 in_chn = fc_params[idx - 1][0]
             fcs.append(nn.Sequential(nn.Linear(in_chn, channels), nn.ReLU(), nn.Dropout(drop_rate)))
-        fcs.append(nn.Linear(fc_params[-1][0], num_classes))
+        fcs.append(nn.Linear(fc_params[-1][0], self.rep_dim))
         self.fc = nn.Sequential(*fcs)
 
         self.pair_embed = PairEmbed(pair_embed_dims) if pair_embed_dims is not None else None

@@ -3,6 +3,7 @@ from .cifar10_LeNet import CIFAR10_LeNet, CIFAR10_LeNet_Autoencoder
 from .cifar10_LeNet_elu import CIFAR10_LeNet_ELU, CIFAR10_LeNet_ELU_Autoencoder
 from .ftops_ptransformer import ParticleTransformer
 from .ftops_Mlp import FTOPS_Mlp
+from .ftops_ParticleNET import ParticleNet
 
 def build_network(
                  #net_name, 
@@ -98,19 +99,11 @@ def build_network(
                  #use_amp,
                  **kwargs)  
 
-    #if net_name == 'ftops_Mlp':
-    #    net = FTOPS_Mlp(num_features,
-    #             rep_dim,
-    #             aux_dim,
-    #             **kwargs)  
-
     if net_name == 'ftops_Mlp':
-
-        #net = FTOPS_Mlp(num_features, rep_dim, **kwargs)    
         net = FTOPS_Mlp(**kwargs)
 
     if net_name == 'ftops_ParticleNET':
-        net = ParticleNET(**kwargs)
+        net = ParticleNet(**kwargs)
 
     return net
 
