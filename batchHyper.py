@@ -17,7 +17,8 @@ def main ():
     batchFolder = "batch__%s" % name
     extraCommand = config.options
 
-    # Get hyperparameters from parser options
+    # Get parser options
+    architecture = config.architecture if config.architecture else None
     lr = config.lr if config.lr else None
     epochs = config.epochs if config.epochs else None
     milestones = config.milestones if config.milestones else None
@@ -26,6 +27,7 @@ def main ():
     z_dim = config.z_dim if config.z_dim else None
 
     hyperparameters = {}
+    hyperparameters["architecture"] = architecture.split(",")
     if lr: hyperparameters["lr"] = lr.split(",")
     if epochs: hyperparameters["epochs"] = epochs.split(",")
     if milestones: hyperparameters["milestone"] = milestones.split(",")
@@ -59,7 +61,7 @@ def main ():
 def createShell(hypname, hypvalue, default_name, batchFolder, extraCommand):
 
     # Set default command to run
-    command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-3 --n_epochs 100 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
+    command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-5 --n_epochs 500 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
 
     # Set specific name
     default_hyps = default_name.split("_")
@@ -78,8 +80,9 @@ def createShell(hypname, hypvalue, default_name, batchFolder, extraCommand):
     runningFolder = os.getcwd()
 
     # Modify hyperparameter in command
-    if hypname=="lr": command = command.replace("--lr 1e-3", "--lr %s" % hypvalue)
-    elif hypname=="epochs": command = command.replace("--n_epochs 100", "--n_epochs %s" % hypvalue)
+    if hypname=="architecture": command = command.replace("ftops_Transformer", hypvalue)
+    elif hypname=="lr": command = command.replace("--lr 1e-5", "--lr %s" % hypvalue)
+    elif hypname=="epochs": command = command.replace("--n_epochs 500", "--n_epochs %s" % hypvalue)
     elif hypname=="milestone": command = command.replace("--lr_milestone 50", "--lr_milestone %s" % hypvalue)
     elif hypname=="wdecay": command = command.replace("--weight_decay 0.5e-6", "--weight_decay %s" % hypvalue)
     elif hypname=="batch": command = command.replace("--batch_size 500", "--batch_size %s" % hypvalue)
@@ -91,7 +94,7 @@ def createShell(hypname, hypvalue, default_name, batchFolder, extraCommand):
     s = open (shellName, "w+")
     s.write ("#!/usr/bin/bash\n")
     s.write ('cd %s\n' % PWD)
-    s.write ('source setup.sh\n' )
+    s.write ('source /lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/setup.sh\n' )
     s.write ("cd src\n")
     s.write ("%s %s\n" % (command, extraCommand if extraCommand else ""))
     s.write ("deactivate\n")
@@ -136,6 +139,7 @@ def optParser():
     parser.add_option("-z","--z-dim", dest="z_dim", help="Comma-separated list of z_dim values for latent space",default=None)
     parser.add_option("-f","--folder-name", dest="name", help="Name of the folder",default=None)
     parser.add_option("-d","--default", dest="default", help="Default name of the runs",default=None)
+    parser.add_option("-a","--architecture", dest="architecture", help="String name of the architecture: ftops_Mlp, ftops_Transformer, ftops_ParticleNET",default=None)
 
     (config, sys.argv[1:]) = parser.parse_args(sys.argv[1:])
     return config
