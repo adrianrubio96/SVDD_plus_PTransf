@@ -37,6 +37,9 @@ class DeepSVDDTrainer(BaseTrainer):
         # Optimization parameters
         self.warm_up_n_epochs = 10  # number of training epochs for soft-boundary Deep SVDD before radius R gets updated
 
+        # Training parameters
+        self.n_epochs = n_epochs
+
         # Results
         self.train_time = None
         self.test_auc = None
@@ -64,12 +67,15 @@ class DeepSVDDTrainer(BaseTrainer):
 
 
         # Set learning rate scheduler
+        logger.info('net_name: %s' % self.net_name)
         if self.net_name == 'ftops_Mlp':
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
         if self.net_name == 'ftops_Transformer':
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+            #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
         if self.net_name == 'ftops_ParticleNET':
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+            #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
 
         # initialize the early_stopping object
         #early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
@@ -85,10 +91,10 @@ class DeepSVDDTrainer(BaseTrainer):
         # Training
         logger.info('Starting training...')
         start_time = time.time()
-        net.train()
+        #net.train()
 
         for epoch in range(self.n_epochs):
-            #net.train()
+            net.train()
             #scheduler.step()
             #if epoch in self.lr_milestones:
             #    logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
@@ -133,6 +139,9 @@ class DeepSVDDTrainer(BaseTrainer):
                     mask = mask.to(self.device) 
                     aux = aux.to(self.device)
                     labels = labels.to(self.device)
+
+                    # Zero the network parameter gradients
+                    optimizer.zero_grad()
 
                     # Compute forward pass through model
                     outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)

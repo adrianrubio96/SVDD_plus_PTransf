@@ -208,7 +208,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
         fc_nodes = 128
         set_network_dic['fc_nodes'] = fc_nodes
         set_network_dic['fc_params'] = [[fc_nodes, 0.1]]
-        set_network_dic['conv_params']: [(32, 32, 32), (64, 64, 64)]
+        set_network_dic['conv_params']= [(32, 32, 32), (64, 64, 64)]
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(net_name, cfg.settings['objective'], cfg.settings['nu'])
