@@ -167,15 +167,15 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
 
     input_dim = 9
-    embed_dims = 128
-    pair_embed_dims = 64  
+    #embed_dims = 128
+    #pair_embed_dims = 64  
     aux_dim = 2  
 
     set_network_dic = {'net_name': net_name, 
                        'rep_dim': cfg.settings['rep_dim'][0], 
                        'input_dim': input_dim, 
-                       'embed_dims': embed_dims, 
-                       'pair_embed_dims': pair_embed_dims, 
+                       #'embed_dims': embed_dims, 
+                       #'pair_embed_dims': pair_embed_dims, 
                        'aux_dim': aux_dim,
                        #Divide by four, divisble by 8, leave num_layers to 2 
                        'num_heads': 8,
@@ -183,7 +183,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
                        'num_cls_layers': 2,
                        'block_params': None,
                        'cls_block_params': {'dropout': 0, 'attn_dropout': 0, 'activation_dropout': 0},
-                       'aux_fc_params': [],
+                       #'aux_fc_params': [],
                        'activation': 'gelu',
                        'add_bias_attn': False,
                        'seq_len': -1,    # Required for add_bias_attn
@@ -196,19 +196,25 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     if net_name == 'ftops_Mlp':
         num_features = int(inputs.shape[1])
         set_network_dic['num_features'] = num_features
+        
     if net_name == 'ftops_Transformer':
         num_features = 18
         set_network_dic['num_features'] = num_features
-        fc_nodes = 64
-        set_network_dic['fc_nodes'] = fc_nodes
-        set_network_dic['fc_params'] = [[fc_nodes, 0.1], [4*fc_nodes, 0.1], [fc_nodes, 0.1]]
+        set_network_dic['fc_nodes'] = 64
+        set_network_dic['fc_params'] = [[64, 0.1], [4*64, 0.1], [64, 0.1]]
+        set_network_dic['aux_fc_params'] = []
+        set_network_dic['embed_dims'] = [128, 128, 128]
+        set_network_dic['pair_embed_dims'] = [64, 64, 64]
+
     if net_name == 'ftops_ParticleNET':
         num_features = 18
         set_network_dic['num_features'] = num_features
-        fc_nodes = 128
-        set_network_dic['fc_nodes'] = fc_nodes
-        set_network_dic['fc_params'] = [[fc_nodes, 0.1]]
+        set_network_dic['fc_nodes'] = 128
+        set_network_dic['fc_params'] = [(128, 0.1)]
         set_network_dic['conv_params']= [(32, 32, 32), (64, 64, 64)]
+        set_network_dic['aux_fc_params'] = [(32, 0.1), (32, 0.1)]
+        set_network_dic['pair_embed_dims'] = [64, 64, 64]
+        set_network_dic['attention_dims'] = [64, 64, 64]
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(net_name, cfg.settings['objective'], cfg.settings['nu'])

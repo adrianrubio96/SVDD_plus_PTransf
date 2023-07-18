@@ -219,24 +219,23 @@ class ParticleNet(nn.Module):
         #super(ParticleNet, self).__init__(**kwargs)
         super().__init__()
         input_dim = kwargs['input_dim']
-        self.rep_dim = kwargs['rep_dim']
-        conv_params= [(32, 32, 32), (64, 64, 64)]
-        fc_params=[(128, 0.1)]
+        
+        conv_params = kwargs['conv_params']
+        fc_params = kwargs['fc_params']
         aux_dim=None
-        aux_fc_params=[(32, 0.1), (32, 0.1)]
-        pair_embed_dims=[64, 64, 64]
-        attention_dims=[64, 64, 64]
-        use_fusion=True
-        use_fts_bn=True
-        use_counts=True
+        aux_fc_params = kwargs['aux_fc_params']
+        pair_embed_dims = kwargs['pair_embed_dims']
+        attention_dims = kwargs['attention_dims']
         for_segmentation=False
 
-
-        self.use_fts_bn = use_fts_bn
+        # Used internally
+        self.rep_dim = kwargs['rep_dim']
+        self.use_fts_bn = True
+        self.use_fusion = True
+        self.use_counts = True
+        
         if self.use_fts_bn:
             self.bn_fts = nn.BatchNorm1d(input_dim)
-
-        self.use_counts = use_counts
 
         self.edge_convs = nn.ModuleList()
         for idx, channels in enumerate(conv_params):
@@ -244,7 +243,6 @@ class ParticleNet(nn.Module):
             pair_embed_dim = pair_embed_dims[-1] if pair_embed_dims is not None else None
             self.edge_convs.append(EdgeConvBlock(in_feat=in_feat, out_feats=channels, pair_embed_dim=pair_embed_dim, attention_dims=attention_dims))
 
-        self.use_fusion = use_fusion
         if self.use_fusion:
             in_chn = sum(x[-1] for x in conv_params)
             out_chn = np.clip((in_chn // 128) * 128, 128, 1024)

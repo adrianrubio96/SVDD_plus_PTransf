@@ -362,11 +362,9 @@ class ParticleTransformer(BaseNet):
 
         net_name = kwargs['net_name']
         input_dim = kwargs['input_dim']
-        self.rep_dim = kwargs['rep_dim']
         aux_dim = kwargs['aux_dim']
-        # network configurations
-        embed_dims = [128, 512, 128]
-        pair_embed_dims = [64, 64, 64]
+        embed_dims = kwargs['embed_dims']
+        pair_embed_dims = kwargs['pair_embed_dims']
         num_heads = kwargs['num_heads']
         num_layers = kwargs['num_layers']
         num_cls_layers = kwargs['num_cls_layers']
@@ -377,15 +375,12 @@ class ParticleTransformer(BaseNet):
         activation = kwargs['activation']
         add_bias_attn = kwargs['add_bias_attn']
         seq_len = kwargs['seq_len']
+
+        #Used internally
+        self.rep_dim = kwargs['rep_dim']
         self.trim = kwargs['trim']
         self.for_inference = kwargs['for_inference']
         self.use_amp = kwargs['use_amp']
-
-        #Used internally
-        #self.rep_dim = rep_dim
-        #self.trim = trim
-        #self.for_inference = for_inference
-        #self.use_amp = use_amp
         self._counter = 0
 
         default_cfg = dict(embed_dim=embed_dims[-1], num_heads=num_heads, ffn_ratio=4,
@@ -432,8 +427,8 @@ class ParticleTransformer(BaseNet):
 
         # init
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims[-1]), requires_grad=True)
-        #trunc_normal_(self.cls_token, std=.02)
-        self.cls_token = nn.init.xavier_uniform_(self.cls_token, gain=1.0)
+        trunc_normal_(self.cls_token, std=.02)
+        #self.cls_token = nn.init.xavier_uniform_(self.cls_token, gain=1.0)
 
     @torch.jit.ignore
     def no_weight_decay(self):
