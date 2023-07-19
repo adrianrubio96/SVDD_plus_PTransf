@@ -1,0 +1,45 @@
+### Config file with all the parameters for the models
+
+## MLP
+MLP:
+  net_name: ftops_Mlp
+  input_dim: 9
+  aux_dim: 2
+    
+## Transformer
+ParT:
+  net_name: ftops_Transformer
+  input_dim: 9
+  aux_dim: 2
+  num_features: 18
+  num_heads: 8
+  num_layers: 8
+  num_cls_layers: 2
+  block_params: None
+  cls_block_params: {'dropout': 0, 'attn_dropout': 0, 'activation_dropout': 0}
+  fc_params: [[64, 0.1], [256, 0.1], [64, 0.1]]
+  aux_fc_params: []
+  embed_dims: [128, 128, 128]
+  pair_embed_dims: [64, 64, 64]
+  activation: 'gelu'
+  add_bias_attn: False
+  seq_len: -1
+  trim: True
+  for_inference: False
+  use_amp: False
+
+## ParticeNet
+PNET:
+  net_name: ftops_ParticleNET
+  input_dim: 9
+  aux_dim: 2
+  num_features: 18
+  fc_params: [[128, 0.1]]
+  aux_fc_params: [[32, 0.1], [32, 0.1]]
+  embed_dims: [128, 128, 128]
+  pair_embed_dims: [64, 64, 64]
+  fc_params: [[128, 0.1]]
+  conv_params: [[32, 32, 32], [64, 64, 64]]
+  aux_fc_params: [[32, 0.1], [32, 0.1]]
+  pair_embed_dims: [64, 64, 64]
+  attention_dims: [64, 64, 64]

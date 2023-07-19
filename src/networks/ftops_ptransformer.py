@@ -333,27 +333,7 @@ class Block(nn.Module):
 
 class ParticleTransformer(BaseNet):
 
-    def __init__(self,
-                 #input_dim,
-                 #rep_dim,
-                 #aux_dim,
-                 ## network configurations
-                 #embed_dims,
-                 #pair_embed_dims,
-                 #num_heads,
-                 #num_layers,
-                 #num_cls_layers,
-                 #block_params,
-                 #cls_block_params,
-                 #fc_params,
-                 #aux_fc_params,
-                 #activation,
-                 #add_bias_attn,
-                 #seq_len,
-                 #trim,
-                 #for_inference,
-                 #use_amp,
-                 **kwargs) -> None:
+    def __init__(self, **kwargs) -> None:
 
         super().__init__()
 
@@ -368,7 +348,8 @@ class ParticleTransformer(BaseNet):
         num_heads = kwargs['num_heads']
         num_layers = kwargs['num_layers']
         num_cls_layers = kwargs['num_cls_layers']
-        block_params = kwargs['block_params']
+        block_params = None if kwargs['block_params']=='None' else kwargs['block_params']
+        print('block_params', block_params)
         cls_block_params = kwargs['cls_block_params']
         fc_params = kwargs['fc_params']
         aux_fc_params = kwargs['aux_fc_params']
