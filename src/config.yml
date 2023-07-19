@@ -1,17 +1,28 @@
 ### Config file with all the parameters for the models
 
-## MLP
-MLP:
+###### MLP ######
+ftops_Mlp:
+
+  ## Architecture
   net_name: ftops_Mlp
+
+  ## Input
   input_dim: 9
+  num_features: 92
   aux_dim: 2
+
+  ## Default hyperparameters for training
+  batch_size: 500
+  n_epochs: 500
+  lr: 0.00001
+  lr_milestone: 50
+  rep_dim: 10
     
-## Transformer
-ParT:
+###### Transformer ######
+ftops_Transformer:
+
+  ## Architecture
   net_name: ftops_Transformer
-  input_dim: 9
-  aux_dim: 2
-  num_features: 18
   num_heads: 8
   num_layers: 8
   num_cls_layers: 2
@@ -21,19 +32,31 @@ ParT:
   aux_fc_params: []
   embed_dims: [128, 128, 128]
   pair_embed_dims: [64, 64, 64]
-  activation: 'gelu'
+  activation: gelu
   add_bias_attn: False
   seq_len: -1
   trim: True
   for_inference: False
   use_amp: False
 
-## ParticeNet
-PNET:
-  net_name: ftops_ParticleNET
+  ## Input
   input_dim: 9
-  aux_dim: 2
   num_features: 18
+  aux_dim: 2
+
+  ## Default hyperparameters for training
+  batch_size: 500
+  n_epochs: 500
+  lr: 0.00001
+  lr_milestone: 50
+  weight_decay: 0.000005
+  rep_dim: 10
+
+###### ParticeNet ######
+ftops_ParticleNET:
+
+  ## Architecture
+  net_name: ftops_ParticleNET
   fc_params: [[128, 0.1]]
   aux_fc_params: [[32, 0.1], [32, 0.1]]
   embed_dims: [128, 128, 128]
@@ -43,3 +66,16 @@ PNET:
   aux_fc_params: [[32, 0.1], [32, 0.1]]
   pair_embed_dims: [64, 64, 64]
   attention_dims: [64, 64, 64]
+
+  ## Input
+  input_dim: 9
+  num_features: 18
+  aux_dim: None
+
+  ## Default hyperparameters for training
+  batch_size: 500
+  n_epochs: 500
+  lr: 0.00001
+  lr_milestone: 50
+  weight_decay: 0.000005
+  rep_dim: 10

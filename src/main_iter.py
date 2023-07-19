@@ -6,6 +6,7 @@ import logging
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+import yaml
 
 from tqdm import tqdm
 from utils.config import Config
@@ -54,15 +55,15 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.option('--seed', type=int, default=-1, help='Set seed. If -1, use randomization.')
 @click.option('--optimizer_name', type=click.Choice(['adam', 'amsgrad']), default='adam',
               help='Name of the optimizer to use for Deep SVDD network training.')
-@click.option('--lr', type=float, default=0.001,
-              help='Initial learning rate for Deep SVDD network training. Default=0.001')
-@click.option('--n_epochs', type=int, default=50, help='Number of epochs to train.')
+@click.option('--lr', type=float, default=None,
+              help='Initial learning rate for Deep SVDD network training. Default=None')
+@click.option('--n_epochs', type=int, default=None, help='Number of epochs to train.')
 #@click.option('--lr_milestone', type=int, default=[0], multiple=True,
 #              help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
-@click.option('--lr_milestone', default=[0], multiple=True,
+@click.option('--lr_milestone', default=None, multiple=True,
               help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
-@click.option('--batch_size', type=int, default=128, help='Batch size for mini-batch training.')
-@click.option('--weight_decay', type=float, default=1e-6,
+@click.option('--batch_size', type=int, default=None, help='Batch size for mini-batch training.')
+@click.option('--weight_decay', type=float, default=None,
               help='Weight decay (L2 penalty) hyperparameter for Deep SVDD objective.')
 @click.option('--pretrain', type=bool, default=True,
               help='Pretrain neural network parameters via autoencoder.')
@@ -80,7 +81,7 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
               help='Number of workers for data loading. 0 means that the data will be loaded in the main process.')
 @click.option('--normal_class', type=int, default=0,
               help='Specify the normal class of the dataset (all other classes are considered anomalous).')
-@click.option('--rep_dim', type=int, default=[2, 5, 10, 20, 25], multiple=True, 
+@click.option('--rep_dim', type=int, default=None, multiple=True, 
               help='Specify the latent space dimensions.')
 
 
@@ -96,11 +97,13 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     isExist = os.path.exists(xp_path)
     if not isExist:
 
-     # Create a new directory because it does not exist
-     os.makedirs(xp_path)
-     print("A new " + xp_path  + " directory is created!")
+        # Create a new directory because it does not exist
+        os.makedirs(xp_path)
+        print("A new " + xp_path  + " directory is created!")
 
-    # Get configuration
+    print(locals().copy())
+
+    # Get configuration from parser and convert to dict
     cfg = Config(locals().copy())
 
     # Set up logging
@@ -166,55 +169,27 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     # Start a W&B run
     wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
 
-    input_dim = 9
-    #embed_dims = 128
-    #pair_embed_dims = 64  
-    aux_dim = 2  
+    # Read network hyperparameters from yaml config as dictionary
+    yaml_config = 'config.yml'
+    with open(yaml_config, 'r') as f:
+        yaml_dic = yaml.load(f, Loader=yaml.FullLoader)
+    
+    # Get default network hyperparameters from yaml config
+    set_network_dic = yaml_dic[net_name]
 
-    set_network_dic = {'net_name': net_name, 
-                       'rep_dim': cfg.settings['rep_dim'][0], 
-                       'input_dim': input_dim, 
-                       #'embed_dims': embed_dims, 
-                       #'pair_embed_dims': pair_embed_dims, 
-                       'aux_dim': aux_dim,
-                       #Divide by four, divisble by 8, leave num_layers to 2 
-                       'num_heads': 8,
-                       'num_layers': 8,
-                       'num_cls_layers': 2,
-                       'block_params': None,
-                       'cls_block_params': {'dropout': 0, 'attn_dropout': 0, 'activation_dropout': 0},
-                       #'aux_fc_params': [],
-                       'activation': 'gelu',
-                       'add_bias_attn': False,
-                       'seq_len': -1,    # Required for add_bias_attn
-                       # misc
-                       'trim': True,
-                       'for_inference': False,
-                       'use_amp': False,
-                       }
+    # Print default network hyperparameters
+    for key, value in set_network_dic.items():
+        logger.info("Default %s : %s " % (key, value))
 
-    if net_name == 'ftops_Mlp':
-        num_features = int(inputs.shape[1])
-        set_network_dic['num_features'] = num_features
-        
-    if net_name == 'ftops_Transformer':
-        num_features = 18
-        set_network_dic['num_features'] = num_features
-        set_network_dic['fc_nodes'] = 64
-        set_network_dic['fc_params'] = [[64, 0.1], [4*64, 0.1], [64, 0.1]]
-        set_network_dic['aux_fc_params'] = []
-        set_network_dic['embed_dims'] = [128, 128, 128]
-        set_network_dic['pair_embed_dims'] = [64, 64, 64]
+    # Replace default hyperparameters with parser options concerning training
+    cfg.settings['rep_dim'] = set_network_dic['rep_dim'] if cfg.settings['rep_dim'] is None else cfg.settings['rep_dim']
+    cfg.settings['lr'] = set_network_dic['lr'] if cfg.settings['lr'] is None else cfg.settings['lr']
+    cfg.settings['n_epochs'] = set_network_dic['n_epochs'] if cfg.settings['n_epochs'] is None else cfg.settings['n_epochs']
+    cfg.settings['batch_size'] = set_network_dic['batch_size'] if cfg.settings['batch_size'] is None else cfg.settings['batch_size']
+    cfg.settings['lr_milestone'] = set_network_dic['lr_milestone'] if cfg.settings['lr_milestone'] is None else cfg.settings['lr_milestone']
+    cfg.settings['weight_decay'] = set_network_dic['weight_decay'] if cfg.settings['weight_decay'] is None else cfg.settings['weight_decay']
 
-    if net_name == 'ftops_ParticleNET':
-        num_features = 18
-        set_network_dic['num_features'] = num_features
-        set_network_dic['fc_nodes'] = 128
-        set_network_dic['fc_params'] = [(128, 0.1)]
-        set_network_dic['conv_params']= [(32, 32, 32), (64, 64, 64)]
-        set_network_dic['aux_fc_params'] = [(32, 0.1), (32, 0.1)]
-        set_network_dic['pair_embed_dims'] = [64, 64, 64]
-        set_network_dic['attention_dims'] = [64, 64, 64]
+    #set_network_dic['rep_dim'] = cfg.settings['rep_dim'][0]
 
     # Initialize DeepSVDD model and set neural network \phi
     deep_SVDD = DeepSVDD(net_name, cfg.settings['objective'], cfg.settings['nu'])

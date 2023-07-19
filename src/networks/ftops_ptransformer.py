@@ -349,7 +349,6 @@ class ParticleTransformer(BaseNet):
         num_layers = kwargs['num_layers']
         num_cls_layers = kwargs['num_cls_layers']
         block_params = None if kwargs['block_params']=='None' else kwargs['block_params']
-        print('block_params', block_params)
         cls_block_params = kwargs['cls_block_params']
         fc_params = kwargs['fc_params']
         aux_fc_params = kwargs['aux_fc_params']

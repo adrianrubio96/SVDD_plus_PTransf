@@ -201,20 +201,7 @@ class EdgeConvBlock(nn.Module):
 class ParticleNet(nn.Module):
 #class ParticleNet(BaseNet):
 
-    def __init__(self,
-                 #input_dim,
-                 #num_classes,
-                 #conv_params=[(32, 32, 32), (64, 64, 64)],
-                 #fc_params=[(128, 0.1)],
-                 #aux_dim=None,
-                 #aux_fc_params=[(32, 0.1), (32, 0.1)],
-                 #pair_embed_dims=[64, 64, 64],
-                 #attention_dims=[64, 64, 64],
-                 #use_fusion=True,
-                 #use_fts_bn=True,
-                 #use_counts=True,
-                 #for_segmentation=False,
-                 **kwargs):
+    def __init__(self, **kwargs):
         
         #super(ParticleNet, self).__init__(**kwargs)
         super().__init__()
@@ -222,7 +209,7 @@ class ParticleNet(nn.Module):
         
         conv_params = kwargs['conv_params']
         fc_params = kwargs['fc_params']
-        aux_dim=None
+        aux_dim = None if kwargs['aux_dim'] == 'None' else kwargs['aux_dim']
         aux_fc_params = kwargs['aux_fc_params']
         pair_embed_dims = kwargs['pair_embed_dims']
         attention_dims = kwargs['attention_dims']

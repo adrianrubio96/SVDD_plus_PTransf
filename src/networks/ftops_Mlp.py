@@ -14,23 +14,6 @@ class FTOPS_Mlp(BaseNet):
 
         self.num_features = kwargs['num_features'] 
         self.rep_dim = kwargs['rep_dim']
-        
-                
-        #self.fc1 = nn.Linear(self.num_features, 8, bias=False)
-        #self.fc2 = nn.Linear(8, self.rep_dim, bias=False)
-
-        
-        #self.fc1 = nn.Linear(self.num_features, 8, bias=False)
-        #self.fc2 = nn.Linear(8, 4, bias=False)
-        #self.fc3 = nn.Linear(4, self.rep_dim, bias=False)
-        
-        """
-        self.fc1 = nn.Linear(self.num_features, 256, bias=False)
-        self.fc2 = nn.Linear(256, 128, bias=False)
-        self.fc3 = nn.Linear(128, 64, bias=False)
-        self.fc4 = nn.Linear(64, self.rep_dim, bias=False)
-        self.do1 = nn.Dropout(0.1)  # 20% Probability
-        """
 
         self.fc1 = nn.Linear(self.num_features, 64, bias=False)
         self.fc2 = nn.Linear(64, 32, bias=False)
