@@ -216,7 +216,7 @@ class ParticleNet(nn.Module):
         for_segmentation=False
 
         # Used internally
-        self.rep_dim = kwargs['rep_dim']
+        self.rep_dim = kwargs['training']['rep_dim']
         self.use_fts_bn = True
         self.use_fusion = True
         self.use_counts = True

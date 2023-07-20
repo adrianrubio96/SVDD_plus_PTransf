@@ -158,14 +158,6 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
         inputs, _, _ = data
         break
 
-    # Pass through keyboard num of dimensions and feautures via dictionary
-    # to set_network
-
-    #Here the loop
-    #for _z in tqdm(cfg.settings['rep_dim']): # Not looping anymore on latent space dimensions
-
-    #print('Latent space dimensions', _z)
-
     # Start a W&B run
     wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
 
@@ -182,12 +174,13 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
         logger.info("Default %s : %s " % (key, value))
 
     # Replace default hyperparameters with parser options concerning training
-    cfg.settings['rep_dim'] = set_network_dic['rep_dim'] if cfg.settings['rep_dim'] is None else cfg.settings['rep_dim']
-    cfg.settings['lr'] = set_network_dic['lr'] if cfg.settings['lr'] is None else cfg.settings['lr']
-    cfg.settings['n_epochs'] = set_network_dic['n_epochs'] if cfg.settings['n_epochs'] is None else cfg.settings['n_epochs']
-    cfg.settings['batch_size'] = set_network_dic['batch_size'] if cfg.settings['batch_size'] is None else cfg.settings['batch_size']
-    cfg.settings['lr_milestone'] = set_network_dic['lr_milestone'] if cfg.settings['lr_milestone'] is None else cfg.settings['lr_milestone']
-    cfg.settings['weight_decay'] = set_network_dic['weight_decay'] if cfg.settings['weight_decay'] is None else cfg.settings['weight_decay']
+    set_training_dic = set_network_dic['training']
+    cfg.settings['rep_dim'] = set_training_dic['rep_dim'] if cfg.settings['rep_dim'] is None else cfg.settings['rep_dim']
+    cfg.settings['lr'] = set_training_dic['lr'] if cfg.settings['lr'] is None else cfg.settings['lr']
+    cfg.settings['n_epochs'] = set_training_dic['n_epochs'] if cfg.settings['n_epochs'] is None else cfg.settings['n_epochs']
+    cfg.settings['batch_size'] = set_training_dic['batch_size'] if cfg.settings['batch_size'] is None else cfg.settings['batch_size']
+    cfg.settings['lr_milestone'] = set_training_dic['lr_milestone'] if cfg.settings['lr_milestone'] is None else cfg.settings['lr_milestone']
+    cfg.settings['weight_decay'] = set_training_dic['weight_decay'] if cfg.settings['weight_decay'] is None else cfg.settings['weight_decay']
 
     #set_network_dic['rep_dim'] = cfg.settings['rep_dim'][0]
 

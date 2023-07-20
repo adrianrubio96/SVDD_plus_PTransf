@@ -357,7 +357,7 @@ class ParticleTransformer(BaseNet):
         seq_len = kwargs['seq_len']
 
         #Used internally
-        self.rep_dim = kwargs['rep_dim']
+        self.rep_dim = kwargs['training']['rep_dim']
         self.trim = kwargs['trim']
         self.for_inference = kwargs['for_inference']
         self.use_amp = kwargs['use_amp']

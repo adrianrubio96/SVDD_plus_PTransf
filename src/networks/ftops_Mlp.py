@@ -13,7 +13,7 @@ class FTOPS_Mlp(BaseNet):
         kwargs = dict(kwargs)
 
         self.num_features = kwargs['num_features'] 
-        self.rep_dim = kwargs['rep_dim']
+        self.rep_dim = kwargs['training']['rep_dim']
 
         self.fc1 = nn.Linear(self.num_features, 64, bias=False)
         self.fc2 = nn.Linear(64, 32, bias=False)

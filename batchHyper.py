@@ -1,6 +1,7 @@
 #/usr/bin/env python
 
 import os, sys
+import yaml
 PWD = os.getcwd()
 
 # ---------------------------------------------------------------
@@ -8,33 +9,39 @@ PWD = os.getcwd()
 # ---------------------------------------------------------------
 def main ():
     config = optParser ()
-    if not config.default:
-        print ("[ERROR] Please provide a default name for the runs")
-        sys.exit ()
 
-    default_name = config.default
+    prefix = config.prefix
     name = config.name if config.name else "test"
+    yaml_ = config.config if config.config else None
     batchFolder = "batch__%s" % name
     extraCommand = config.options
 
-    # Get parser options
+    # Read yaml file
+    with open(yaml_, 'r') as f:
+        yaml_dic = yaml.load(f, Loader=yaml.FullLoader)
+
+    # Get architecture name and read hyperparameters from yaml file
     architecture = config.architecture if config.architecture else None
+    default_hypers = yaml_dic[architecture]["training"]
+
+    # Read hyperparameters from command line
     lr = config.lr if config.lr else None
-    epochs = config.epochs if config.epochs else None
-    milestones = config.milestones if config.milestones else None
+    n_epochs = config.n_epochs if config.n_epochs else None
+    lr_milestone = config.lr_milestone if config.lr_milestone else None
     weight_decay = config.weight_decay if config.weight_decay else None
     batch_size = config.batch_size if config.batch_size else None
-    z_dim = config.z_dim if config.z_dim else None
+    rep_dim = config.rep_dim if config.rep_dim else None
 
+    # Make dictionary of hyperparameters to be scanned
     hyperparameters = {}
-    hyperparameters["architecture"] = architecture.split(",")
     if lr: hyperparameters["lr"] = lr.split(",")
-    if epochs: hyperparameters["epochs"] = epochs.split(",")
-    if milestones: hyperparameters["milestone"] = milestones.split(",")
-    if weight_decay: hyperparameters["wdecay"] = weight_decay.split(",")
-    if batch_size: hyperparameters["batch"] = batch_size.split(",")
-    if z_dim: hyperparameters["zdim"] = z_dim.split(",")
+    if n_epochs: hyperparameters["n_epochs"] = n_epochs.split(",")
+    if lr_milestone: hyperparameters["lr_milestone"] = lr_milestone.split(",")
+    if weight_decay: hyperparameters["weight_decay"] = weight_decay.split(",")
+    if batch_size: hyperparameters["batch_size"] = batch_size.split(",")
+    if rep_dim: hyperparameters["rep_dim"] = rep_dim.split(",")
 
+    # Make the batch folder
     if os.path.exists (batchFolder):
         print ("[info]     .. cleaning ..")
         os.system ("rm %s/*err" % batchFolder)
@@ -45,11 +52,12 @@ def main ():
         print ("[info]     .. creating ..")
         os.system ("mkdir  %s" % batchFolder)
 
+    # Loop over hyperparameters
     print ("[info] Looping over hyperparameter variations")
     for hypname in hyperparameters.keys():
         print ("[info] . Hyperparameter: %s" % hypname)
         for hypvalue in hyperparameters[hypname]:
-            createShell (hypname, hypvalue, default_name, batchFolder, extraCommand)
+            createShell (hypname, hypvalue, default_hypers, architecture, prefix, batchFolder, extraCommand)
     subScript = "%s.sub" % name
     print ("[info] Making the submission script: %s" % subScript)
     createBatch (batchFolder, subScript)
@@ -58,39 +66,36 @@ def main ():
 # ---------------------------------------------------------------
 # create shell script
 # ---------------------------------------------------------------
-def createShell(hypname, hypvalue, default_name, batchFolder, extraCommand):
+def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFolder, extraCommand):
 
     # Set default command to run
-    command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-5 --n_epochs 500 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
+    #command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-5 --n_epochs 500 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
+    command = "python main_iter.py 4tops %s ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class  --pretrain False " % architecture
 
-    # Set specific name
-    default_hyps = default_name.split("_")
+    # Complete command with options
     runname_list = []
-    for h in default_hyps:
-        if hypname in h:
-            runname_list.append(hypname+hypvalue)
+    # Loop over default hyperparameters dictionary
+    for hdef_name in default_hyps.keys():
+        if hdef_name==hypname:
+            command += " --%s %s" % (hdef_name, str(hypvalue))
+            runname_list.append(hdef_name+str(hypvalue))
         else:
-            runname_list.append(h)
-            
-    runname = "_".join(runname_list)
-    command = command.replace(default_name, runname)
+            command += " --%s %s" % (hdef_name,str(default_hyps[hdef_name]))
+            runname_list.append(hdef_name+str(default_hyps[hdef_name]))
+      
+    # Set run name
+    runname = "_".join([prefix,"_".join(runname_list)])
+
+    # Simplify run name
+    runname = runname.replace("n_epochs","e").replace("lr_milestone","lrm").replace("weight_decay","wd").replace("batch_size","b").replace("rep_dim","z")
+    
+    # Add run name to command
+    command += " --network_name %s_%s" % (prefix,runname)
     
     print("[info] . Run name: %s" % runname)
     shellName = "%s/%s.sh" % (batchFolder, runname)
     runningFolder = os.getcwd()
 
-    # Modify hyperparameter in command
-    if hypname=="architecture": command = command.replace("ftops_Transformer", hypvalue)
-    elif hypname=="lr": command = command.replace("--lr 1e-5", "--lr %s" % hypvalue)
-    elif hypname=="epochs": command = command.replace("--n_epochs 500", "--n_epochs %s" % hypvalue)
-    elif hypname=="milestone": command = command.replace("--lr_milestone 50", "--lr_milestone %s" % hypvalue)
-    elif hypname=="wdecay": command = command.replace("--weight_decay 0.5e-6", "--weight_decay %s" % hypvalue)
-    elif hypname=="batch": command = command.replace("--batch_size 500", "--batch_size %s" % hypvalue)
-    elif hypname=="zdim": command = command.replace("--rep_dim 10", "--rep_dim %s" % hypvalue)
-    else:
-        print("[WARNING] Hyperparameter %s not found in default command" % hypname)
-        return  
-    
     s = open (shellName, "w+")
     s.write ("#!/usr/bin/bash\n")
     s.write ('cd %s\n' % PWD)
@@ -131,15 +136,16 @@ def optParser():
     from optparse import OptionParser
     parser = OptionParser()
     parser.add_option("-o","--options", dest="options", help="Extra options for the command line ",default=None)
-    parser.add_option("-l","--learning-rate", dest="lr", help="Comma-separated list of learning rate values for the training",default=None)
-    parser.add_option("-e","--epochs", dest="epochs", help="Comma-separated list of epochs values for the training",default=None)
-    parser.add_option("-w","--weight-decay", dest="weight_decay", help="Comma-separated list of weight decay values for the training",default=None)
-    parser.add_option("-m","--lr-milestones", dest="milestones", help="Comma-separated list of learning rate milestones for the training",default=None)
+    parser.add_option("-l","--lr", dest="lr", help="Comma-separated list of learning rate values for the training",default=None)
+    parser.add_option("-e","--n_epochs", dest="n_epochs", help="Comma-separated list of epochs values for the training",default=None)
+    parser.add_option("-w","--weight_decay", dest="weight_decay", help="Comma-separated list of weight decay values for the training",default=None)
+    parser.add_option("-m","--lr_milestone", dest="lr_milestone", help="Comma-separated list of learning rate milestones for the training",default=None)
     parser.add_option("-b","--batch-size", dest="batch_size", help="Comma-separated list of batch size values for the training",default=None)
-    parser.add_option("-z","--z-dim", dest="z_dim", help="Comma-separated list of z_dim values for latent space",default=None)
+    parser.add_option("-z","--rep_dim", dest="rep_dim", help="Comma-separated list of z_dim values for latent space",default=None)
     parser.add_option("-f","--folder-name", dest="name", help="Name of the folder",default=None)
-    parser.add_option("-d","--default", dest="default", help="Default name of the runs",default=None)
+    parser.add_option("-p","--prefix", dest="prefix", help="Default name of the runs",default=None)
     parser.add_option("-a","--architecture", dest="architecture", help="String name of the architecture: ftops_Mlp, ftops_Transformer, ftops_ParticleNET",default=None)
+    parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default=None)
 
     (config, sys.argv[1:]) = parser.parse_args(sys.argv[1:])
     return config
