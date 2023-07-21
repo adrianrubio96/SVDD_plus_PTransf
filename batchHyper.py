@@ -90,7 +90,7 @@ def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFold
     runname = runname.replace("n_epochs","e").replace("lr_milestone","lrm").replace("weight_decay","wd").replace("batch_size","b").replace("rep_dim","z")
     
     # Add run name to command
-    command += " --network_name %s_%s" % (prefix,runname)
+    command += " --network_name %s" % (runname)
     
     print("[info] . Run name: %s" % runname)
     shellName = "%s/%s.sh" % (batchFolder, runname)
@@ -140,7 +140,7 @@ def optParser():
     parser.add_option("-e","--n_epochs", dest="n_epochs", help="Comma-separated list of epochs values for the training",default=None)
     parser.add_option("-w","--weight_decay", dest="weight_decay", help="Comma-separated list of weight decay values for the training",default=None)
     parser.add_option("-m","--lr_milestone", dest="lr_milestone", help="Comma-separated list of learning rate milestones for the training",default=None)
-    parser.add_option("-b","--batch-size", dest="batch_size", help="Comma-separated list of batch size values for the training",default=None)
+    parser.add_option("-b","--batch_size", dest="batch_size", help="Comma-separated list of batch size values for the training",default=None)
     parser.add_option("-z","--rep_dim", dest="rep_dim", help="Comma-separated list of z_dim values for latent space",default=None)
     parser.add_option("-f","--folder-name", dest="name", help="Name of the folder",default=None)
     parser.add_option("-p","--prefix", dest="prefix", help="Default name of the runs",default=None)

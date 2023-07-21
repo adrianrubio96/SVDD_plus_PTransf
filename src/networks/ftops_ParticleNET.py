@@ -242,8 +242,8 @@ class ParticleNet(nn.Module):
                 in_chn = out_chn if self.use_fusion else conv_params[-1][1][-1]
             else:
                 in_chn = fc_params[idx - 1][0]
-            fcs.append(nn.Sequential(nn.Linear(in_chn, channels), nn.ReLU(), nn.Dropout(drop_rate)))
-        fcs.append(nn.Linear(fc_params[-1][0], self.rep_dim))
+            fcs.append(nn.Sequential(nn.Linear(in_chn, channels, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
+        fcs.append(nn.Linear(fc_params[-1][0], self.rep_dim, bias=False))
         self.fc = nn.Sequential(*fcs)
 
         self.pair_embed = PairEmbed(pair_embed_dims) if pair_embed_dims is not None else None
@@ -252,10 +252,10 @@ class ParticleNet(nn.Module):
             aux_fcs = []
             in_dim = aux_dim
             for out_dim, drop_rate in aux_fc_params:
-                aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim), nn.ReLU(), nn.Dropout(drop_rate)))
+                aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
                 in_dim = out_dim
             out_dim = out_chn if self.use_fusion else conv_params[-1][1][-1]
-            aux_fcs.append(nn.Linear(in_dim, out_dim))
+            aux_fcs.append(nn.Linear(in_dim, out_dim, bias=False))
             self.aux_fc = nn.Sequential(*aux_fcs)
         else:
             self.aux_fc = None
