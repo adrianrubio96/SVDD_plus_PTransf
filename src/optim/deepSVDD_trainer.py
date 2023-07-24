@@ -20,8 +20,8 @@ class DeepSVDDTrainer(BaseTrainer):
     # Start a W&B run
     #wandb.init(project='test') 
 
-    def __init__(self, objective, R, c, nu: float, net_name: str = 'ftops_Mlp', optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 150,
-                 lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
+    def __init__(self, objective, R, c, nu: float, net_name: str = 'ftops_Mlp', optimizer_name: str = 'adam', lr: float = 0.001, scheduler: str = 'ReduceLROnPlateau',
+                 n_epochs: int = 150, lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
                  n_jobs_dataloader: int = 0):
         super().__init__(optimizer_name, lr, n_epochs, lr_milestones, batch_size, weight_decay, device,
                          n_jobs_dataloader)
@@ -39,6 +39,7 @@ class DeepSVDDTrainer(BaseTrainer):
 
         # Training parameters
         self.n_epochs = n_epochs
+        self.scheduler = scheduler
 
         # Results
         self.train_time = None
@@ -48,6 +49,7 @@ class DeepSVDDTrainer(BaseTrainer):
 
         # Network
         self.net_name = net_name
+
 
     def train(self, dataset: BaseADDataset, net: BaseNet):
         logger = logging.getLogger()
@@ -62,21 +64,19 @@ class DeepSVDDTrainer(BaseTrainer):
         train_loader, val_loader, _ = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
 
         # Set optimizer (Adam optimizer for now)
-        optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
-                               amsgrad=self.optimizer_name == 'amsgrad')
-
+        if self.optimizer_name == 'adam':
+            optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
+                               amsgrad=False)
+        elif self.optimizer_name == 'sgd':
+            optimizer = optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
+                               momentum=0.9, nesterov=True)
 
         # Set learning rate scheduler
-        logger.info('net_name: %s' % self.net_name)
-        if self.net_name == 'ftops_Mlp':
+        if self.scheduler == 'ReduceLROnPlateau':
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+        elif self.scheduler == 'MultiStepLR':
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
-        if self.net_name == 'ftops_Transformer':
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
-            #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
-        if self.net_name == 'ftops_ParticleNET':
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
-            #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
-
+        
         # initialize the early_stopping object
         #early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
 
@@ -246,13 +246,10 @@ class DeepSVDDTrainer(BaseTrainer):
             #  print("Early stopping")
             #  break
 
-            
-            if self.net_name == "ftops_Mlp":
+            if self.scheduler == 'ReduceLROnPlateau':
+                scheduler.step(validation_loss / len(val_loader))
+            elif self.scheduler == 'MultiStepLR':
                 scheduler.step()
-            if self.net_name == "ftops_Transformer":
-                scheduler.step(validation_loss / len(val_loader))
-            if self.net_name == "ftops_ParticleNET":
-                scheduler.step(validation_loss / len(val_loader))
 
             wandb.log({"lr": optimizer.param_groups[0]['lr']})
 

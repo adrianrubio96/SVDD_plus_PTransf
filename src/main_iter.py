@@ -53,14 +53,16 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.option('--nu', type=float, default=0.1, help='Deep SVDD hyperparameter nu (must be 0 < nu <= 1).')
 @click.option('--device', type=str, default='cuda', help='Computation device to use ("cpu", "cuda", "cuda:2", etc.).')
 @click.option('--seed', type=int, default=-1, help='Set seed. If -1, use randomization.')
-@click.option('--optimizer_name', type=click.Choice(['adam', 'amsgrad']), default='adam',
+@click.option('--optimizer_name', type=click.Choice(['adam', 'amsgrad']), default=None,
               help='Name of the optimizer to use for Deep SVDD network training.')
+@click.option('--scheduler', type=click.Choice(['MultiStepLR', 'ReduceLROnPlateau']), default=None,
+              help='Name of the scheduler to use for learning rate evolution duting training.')
 @click.option('--lr', type=float, default=None,
               help='Initial learning rate for Deep SVDD network training. Default=None')
 @click.option('--n_epochs', type=int, default=None, help='Number of epochs to train.')
 #@click.option('--lr_milestone', type=int, default=[0], multiple=True,
 #              help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
-@click.option('--lr_milestone', default=None, multiple=True,
+@click.option('--lr_milestone', default=None,
               help='Lr scheduler milestones at which lr is multiplied by 0.1. Can be multiple and must be increasing.')
 @click.option('--batch_size', type=int, default=None, help='Batch size for mini-batch training.')
 @click.option('--weight_decay', type=float, default=None,
@@ -85,7 +87,7 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
               help='Specify the latent space dimensions.')
 
 
-def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim):
+def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim):
     """
     Deep SVDD, a fully deep method for anomaly detection.
 
@@ -100,8 +102,6 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
         # Create a new directory because it does not exist
         os.makedirs(xp_path)
         print("A new " + xp_path  + " directory is created!")
-
-    print(locals().copy())
 
     # Get configuration from parser and convert to dict
     cfg = Config(locals().copy())
@@ -171,6 +171,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
 
     # Print default network hyperparameters
     for key, value in set_network_dic.items():
+        if key=='training': continue
         logger.info("Default %s : %s " % (key, value))
 
     # Replace default hyperparameters with parser options concerning training
@@ -179,6 +180,8 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     cfg.settings['lr'] = set_training_dic['lr'] if cfg.settings['lr'] is None else cfg.settings['lr']
     cfg.settings['n_epochs'] = set_training_dic['n_epochs'] if cfg.settings['n_epochs'] is None else cfg.settings['n_epochs']
     cfg.settings['batch_size'] = set_training_dic['batch_size'] if cfg.settings['batch_size'] is None else cfg.settings['batch_size']
+    cfg.settings['optimizer_name'] = set_training_dic['optimizer_name'] if cfg.settings['optimizer_name'] is None else cfg.settings['optimizer_name']
+    cfg.settings['scheduler'] = set_training_dic['scheduler'] if cfg.settings['scheduler'] is None else cfg.settings['scheduler']
     cfg.settings['lr_milestone'] = set_training_dic['lr_milestone'] if cfg.settings['lr_milestone'] is None else cfg.settings['lr_milestone']
     cfg.settings['weight_decay'] = set_training_dic['weight_decay'] if cfg.settings['weight_decay'] is None else cfg.settings['weight_decay']
 
@@ -219,8 +222,9 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     # Log training details
     logger.info('Training optimizer: %s' % cfg.settings['optimizer_name'])
     logger.info('Training learning rate: %g' % cfg.settings['lr'])
+    logger.info('Training scheduler: %s' % cfg.settings['scheduler'])
     logger.info('Training epochs: %d' % cfg.settings['n_epochs'])
-    logger.info('Training learning rate scheduler milestones: %s' % (cfg.settings['lr_milestone'],))
+    logger.info('Training learning rate scheduler milestones: %s' % cfg.settings['lr_milestone'])
     logger.info('Training batch size: %d' % cfg.settings['batch_size'])
     logger.info('Training weight decay: %g' % cfg.settings['weight_decay'])
 
@@ -229,8 +233,9 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
                     net_name=net_name,
                     optimizer_name=cfg.settings['optimizer_name'],
                     lr=cfg.settings['lr'],
+                    scheduler=cfg.settings['scheduler'],
                     n_epochs=cfg.settings['n_epochs'],
-                    lr_milestones=cfg.settings['lr_milestone'],
+                    lr_milestones=(cfg.settings['lr_milestone'],),
                     batch_size=cfg.settings['batch_size'],
                     weight_decay=cfg.settings['weight_decay'],
                     device=device,

@@ -1,4 +1,4 @@
-### Config file with all the parameters for the models
+### Config file with the hyperparameters for the models and trainings
 
 ###### MLP ######
 ftops_Mlp:
@@ -13,10 +13,13 @@ ftops_Mlp:
 
   ## Default hyperparameters for training
   training:
+    optimizer_name: adam
     batch_size: 500
     n_epochs: 500
     lr: 0.00001
+    scheduler: MultiStepLR
     lr_milestone: 50
+    weight_decay: 0.000005
     rep_dim: 10
     
 ###### Transformer ######
@@ -41,15 +44,18 @@ ftops_Transformer:
   use_amp: False
 
   ## Input
+  #input_dim: 12 ## for j,b,e-,e+,mu-,mu+,g
   input_dim: 9
   num_features: 18
   aux_dim: 2
 
   ## Default hyperparameters for training
   training:
+    optimizer_name: adam
     batch_size: 500
     n_epochs: 500
     lr: 0.00001
+    scheduler: ReduceLROnPlateau
     lr_milestone: 50
     weight_decay: 0.000005
     rep_dim: 10
@@ -76,9 +82,11 @@ ftops_ParticleNET:
 
   ## Default hyperparameters for training
   training:
+    optimizer_name: adam
     batch_size: 500
     n_epochs: 500
     lr: 0.00001
+    scheduler: ReduceLROnPlateau
     lr_milestone: 50
     weight_decay: 0.000005
     rep_dim: 10
