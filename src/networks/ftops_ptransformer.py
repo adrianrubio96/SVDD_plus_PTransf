@@ -333,34 +333,34 @@ class Block(nn.Module):
 
 class ParticleTransformer(BaseNet):
 
-    def __init__(self,
-                 input_dim,
-                 rep_dim,
-                 aux_dim,
-                 # network configurations
-                 embed_dims,
-                 pair_embed_dims,
-                 num_heads,
-                 num_layers,
-                 num_cls_layers,
-                 block_params,
-                 cls_block_params,
-                 fc_params,
-                 aux_fc_params,
-                 activation,
-                 add_bias_attn,
-                 seq_len,
-                 trim,
-                 for_inference,
-                 use_amp,
-                 **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs) -> None:
+
+        super().__init__()
+
+        # Copy kwargs 
+        kwargs = dict(kwargs)
+
+        net_name = kwargs['net_name']
+        input_dim = kwargs['input_dim']
+        aux_dim = kwargs['aux_dim']
+        embed_dims = kwargs['embed_dims']
+        pair_embed_dims = kwargs['pair_embed_dims']
+        num_heads = kwargs['num_heads']
+        num_layers = kwargs['num_layers']
+        num_cls_layers = kwargs['num_cls_layers']
+        block_params = None if kwargs['block_params']=='None' else kwargs['block_params']
+        cls_block_params = kwargs['cls_block_params']
+        fc_params = kwargs['fc_params']
+        aux_fc_params = kwargs['aux_fc_params']
+        activation = kwargs['activation']
+        add_bias_attn = kwargs['add_bias_attn']
+        seq_len = kwargs['seq_len']
 
         #Used internally
-        self.rep_dim = rep_dim
-        self.trim = trim
-        self.for_inference = for_inference
-        self.use_amp = use_amp
+        self.rep_dim = kwargs['training']['rep_dim']
+        self.trim = kwargs['trim']
+        self.for_inference = kwargs['for_inference']
+        self.use_amp = kwargs['use_amp']
         self._counter = 0
 
         default_cfg = dict(embed_dim=embed_dims[-1], num_heads=num_heads, ffn_ratio=4,
@@ -378,7 +378,7 @@ class ParticleTransformer(BaseNet):
             cfg_cls_block.update(cls_block_params)
 
         self.embed = Embed(input_dim, embed_dims, activation=activation)
-        self.pair_embed = PairEmbed(pair_embed_dims + [cfg_block['num_heads']], for_onnx=for_inference) if pair_embed_dims is not None else None
+        self.pair_embed = PairEmbed(pair_embed_dims + [cfg_block['num_heads']], for_onnx=self.for_inference) if pair_embed_dims is not None else None
         self.blocks = nn.ModuleList([Block(**cfg_block) for _ in range(num_layers)])
         self.cls_blocks = nn.ModuleList([Block(**cfg_cls_block) for _ in range(num_cls_layers)])
         self.norm = nn.LayerNorm(embed_dims[-1])
@@ -400,7 +400,7 @@ class ParticleTransformer(BaseNet):
             for out_dim, drop_rate in fc_params:
                 fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
                 in_dim = out_dim
-            fcs.append(nn.Linear(in_dim, rep_dim, bias=False))
+            fcs.append(nn.Linear(in_dim, self.rep_dim, bias=False))
             self.fc = nn.Sequential(*fcs)
         else:
             self.fc = None
@@ -426,8 +426,10 @@ class ParticleTransformer(BaseNet):
 
             if self.trim and not self.for_inference:
                 if self._counter < 5:
+                    #print(self._counter)
                     self._counter += 1
                 else:
+                    self.training = False
                     if self.training:
                         raise ValueError("Should never get here")
                         q = min(1, random.uniform(0.9, 1.02))
@@ -448,12 +450,15 @@ class ParticleTransformer(BaseNet):
                         if v is not None and ids is not None and self.pair_embed is not None:
                             v = v[:, :, :maxlen]
                             ids = ids[:, :maxlen]
-
+                
+                #print("mask", mask.shape)
             padding_mask = ~mask.squeeze(1)  # (N, P)
+            #print("padding_mask", padding_mask.shape)
 
         with torch.cuda.amp.autocast(enabled=self.use_amp):  
             # input embedding
             x = self.embed(x).masked_fill(~mask.permute(2, 0, 1), 0)  # (P, N, C)
+            #print("embeded x", x.shape)
             attn_mask = None
             if v is not None and ids is not None and self.pair_embed is not None:
                 attn_mask = self.pair_embed(v, ids).view(-1, v.size(-1), v.size(-1))  # (N*num_heads, P, P)
@@ -461,13 +466,16 @@ class ParticleTransformer(BaseNet):
             # transform
             for block in self.blocks:
                 x = block(x, x_cls=None, padding_mask=padding_mask, attn_mask=attn_mask)
+                #print("block x", x.shape)
 
             # extract class token
             cls_tokens = self.cls_token.expand(1, x.size(1), -1)  # (1, N, C)
             for block in self.cls_blocks:
                 cls_tokens = block(x, x_cls=cls_tokens, padding_mask=padding_mask)
+                #print("cls_tokens", cls_tokens.shape)
 
             x_cls = self.norm(cls_tokens).squeeze(0)
+            #print("x_cls", x_cls.shape)
 
             if self.aux_fc is not None and aux is not None:
                 x_cls += self.aux_fc(aux)
@@ -475,6 +483,7 @@ class ParticleTransformer(BaseNet):
             # fc
             if self.fc is None:
                 return x_cls
+            #print("fc", self.fc)
             output = self.fc(x_cls)
             if self.for_inference:
                 output = torch.softmax(output, dim=1)

@@ -2,7 +2,7 @@ from .mnist import MNIST_Dataset
 from .cifar10 import CIFAR10_Dataset
 from .ftops import FTOPS_Dataset
 
-def load_dataset(dataset_name, data_path, normal_class):
+def load_dataset(dataset_name, data_path, normal_class, net_name):
     """Loads the dataset."""
 
     implemented_datasets = ('mnist', 'cifar10', '4tops')
@@ -17,7 +17,7 @@ def load_dataset(dataset_name, data_path, normal_class):
         dataset = CIFAR10_Dataset(root=data_path, normal_class=normal_class)
 
     if dataset_name == '4tops':
-        dataset = FTOPS_Dataset(root=data_path, normal_class=normal_class)
+        dataset = FTOPS_Dataset(root=data_path, normal_class=normal_class, net_name=net_name)
 
 
     return dataset

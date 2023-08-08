@@ -20,8 +20,8 @@ class DeepSVDDTrainer(BaseTrainer):
     # Start a W&B run
     #wandb.init(project='test') 
 
-    def __init__(self, objective, R, c, nu: float, optimizer_name: str = 'adam', lr: float = 0.001, n_epochs: int = 150,
-                 lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
+    def __init__(self, objective, R, c, nu: float, net_name: str = 'ftops_Mlp', optimizer_name: str = 'adam', lr: float = 0.001, scheduler: str = 'ReduceLROnPlateau',
+                 n_epochs: int = 150, lr_milestones: tuple = (), batch_size: int = 128, weight_decay: float = 1e-6, device: str = 'cuda',
                  n_jobs_dataloader: int = 0):
         super().__init__(optimizer_name, lr, n_epochs, lr_milestones, batch_size, weight_decay, device,
                          n_jobs_dataloader)
@@ -37,11 +37,19 @@ class DeepSVDDTrainer(BaseTrainer):
         # Optimization parameters
         self.warm_up_n_epochs = 10  # number of training epochs for soft-boundary Deep SVDD before radius R gets updated
 
+        # Training parameters
+        self.n_epochs = n_epochs
+        self.scheduler = scheduler
+
         # Results
         self.train_time = None
         self.test_auc = None
         self.test_time = None
         self.test_scores = None
+
+        # Network
+        self.net_name = net_name
+
 
     def train(self, dataset: BaseADDataset, net: BaseNet):
         logger = logging.getLogger()
@@ -56,15 +64,19 @@ class DeepSVDDTrainer(BaseTrainer):
         train_loader, val_loader, _ = dataset.loaders(batch_size=self.batch_size, num_workers=self.n_jobs_dataloader)
 
         # Set optimizer (Adam optimizer for now)
-        optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
-                               amsgrad=self.optimizer_name == 'amsgrad')
-
+        if self.optimizer_name == 'adam':
+            optimizer = optim.Adam(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
+                               amsgrad=False)
+        elif self.optimizer_name == 'sgd':
+            optimizer = optim.SGD(net.parameters(), lr=self.lr, weight_decay=self.weight_decay,
+                               momentum=0.9, nesterov=True)
 
         # Set learning rate scheduler
-        #scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
-
-        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
-
+        if self.scheduler == 'ReduceLROnPlateau':
+            scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', min_lr = 1e-7, factor = 0.5, verbose = True)
+        elif self.scheduler == 'MultiStepLR':
+            scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
+        
         # initialize the early_stopping object
         #early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
 
@@ -79,10 +91,10 @@ class DeepSVDDTrainer(BaseTrainer):
         # Training
         logger.info('Starting training...')
         start_time = time.time()
-        net.train()
+        #net.train()
 
         for epoch in range(self.n_epochs):
-            #net.train()
+            net.train()
             #scheduler.step()
             #if epoch in self.lr_milestones:
             #    logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
@@ -92,31 +104,61 @@ class DeepSVDDTrainer(BaseTrainer):
             epoch_start_time = time.time()
             for data in train_loader:
                 inputs, _, _ = data
+                
+                if self.net_name == 'ftops_Mlp':
+                    inputs = inputs.to(self.device)
+                    
+                    # Zero the network parameter gradients
+                    optimizer.zero_grad()
 
-                aux, tokens, momenta, id_int, mask = inputs
+                    # Compute forward pass through model
+                    outputs = net(inputs)
+                
+                if self.net_name == 'ftops_Transformer':
+                    aux, tokens, momenta, id_int, mask = inputs
+    
+                    # Fetch data and move to device
+                    tokens = tokens.to(self.device) 
+                    momenta = momenta.to(self.device) 
+                    id_int = id_int.to(self.device) 
+                    mask = mask.to(self.device) 
+                    aux = aux.to(self.device)
 
-                # Fetch data and move to device
-                tokens = tokens.to(self.device) 
-                momenta = momenta.to(self.device) 
-                id_int = id_int.to(self.device) 
-                mask = mask.to(self.device) 
-                aux = aux.to(self.device)
+                    # Zero the network parameter gradients
+                    optimizer.zero_grad()
 
-                # Zero the network parameter gradients
-                optimizer.zero_grad()
+                    # Compute forward pass through model
+                    outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
 
-                # Update network parameters via backpropagation: forward + backward + optimize
-            
-                # Compute forward pass through model
-                outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
+                if self.net_name == 'ftops_ParticleNET':
+                    aux, tokens, momenta, mask, labels = inputs
 
+                    # Fetch data and move to device
+                    tokens = tokens.to(self.device) 
+                    momenta = momenta.to(self.device) 
+                    mask = mask.to(self.device) 
+                    aux = aux.to(self.device)
+                    labels = labels.to(self.device)
+
+                    # Zero the network parameter gradients
+                    optimizer.zero_grad()
+
+                    # Compute forward pass through model
+                    outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+
+                
+                ## Compute loss
                 dist = torch.sum((outputs - self.c) ** 2, dim=1)
                 if self.objective == 'soft-boundary':
                     scores = dist - self.R ** 2
                     loss = self.R ** 2 + (1 / self.nu) * torch.mean(torch.max(torch.zeros_like(scores), scores))
                 else:
                     loss = torch.mean(dist)
+
+                ## Backpropagation
                 loss.backward()
+
+                ## Update weights
                 optimizer.step()
 
                 # Update hypersphere radius R on mini-batch distances
@@ -139,46 +181,75 @@ class DeepSVDDTrainer(BaseTrainer):
 
             net.eval()            
             with torch.no_grad():
-             validation_loss = 0
-             val_data_size = 0
-             n_batches_val = 0
-             for data in val_loader:
-                inputs, _, _ = data
+                validation_loss = 0
+                val_data_size = 0
+                n_batches_val = 0
+                for data in val_loader:
+                    inputs, _, _ = data
+    
+                    if self.net_name == 'ftops_Mlp':
+                        inputs = inputs.to(self.device)
+                        outputs = net(inputs)
+    
+                        val_data_size += inputs.shape[0]
+                    
+                    if self.net_name == 'ftops_Transformer':
+                        aux, tokens, momenta, id_int, mask = inputs
+        
+                        # Fetch data and move to device
+                        tokens = tokens.to(self.device) 
+                        momenta = momenta.to(self.device) 
+                        id_int = id_int.to(self.device) 
+                        mask = mask.to(self.device) 
+                        aux = aux.to(self.device)
+        
+                        # Compute forward pass through model
+                        outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
+    
+                        val_data_size += tokens.shape[0]
 
-                aux, tokens, momenta, id_int, mask = inputs
+                    if self.net_name == 'ftops_ParticleNET':
+                        aux, tokens, momenta, mask, labels = inputs
+    
+                        # Fetch data and move to device
+                        tokens = tokens.to(self.device) 
+                        momenta = momenta.to(self.device) 
+                        mask = mask.to(self.device) 
+                        aux = aux.to(self.device)
+                        labels = labels.to(self.device)
+    
+                        # Compute forward pass through model
+                        outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
 
-                # Fetch data and move to device
-                tokens = tokens.to(self.device) 
-                momenta = momenta.to(self.device) 
-                id_int = id_int.to(self.device) 
-                mask = mask.to(self.device) 
-                aux = aux.to(self.device)
+                        val_data_size += tokens.shape[0]
 
-                # Compute forward pass through model
-                outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
-
-                dist = torch.sum((outputs - self.c) ** 2, dim=1)
-                if self.objective == 'soft-boundary':
-                    scores = dist - self.R ** 2
-                    loss = self.R ** 2 + (1 / self.nu) * torch.mean(torch.max(torch.zeros_like(scores), scores))
-                else:
-                    loss = torch.mean(dist)
-                val_data_size += tokens.shape[0]
-                validation_loss += loss.item()
-                n_batches_val += 1
-
-             logger.info('  Validation Loss: {:.8f}'
+    
+                    dist = torch.sum((outputs - self.c) ** 2, dim=1)
+                    if self.objective == 'soft-boundary':
+                        scores = dist - self.R ** 2
+                        loss = self.R ** 2 + (1 / self.nu) * torch.mean(torch.max(torch.zeros_like(scores), scores))
+                    else:
+                        loss = torch.mean(dist)
+                    
+                    validation_loss += loss.item()
+                    n_batches_val += 1
+   
+                logger.info('  Validation Loss: {:.8f}'
                          .format(validation_loss /len(val_loader))) #val_data_size)) 
  
-             wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader))})
+                wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader))})
 
+            #If LR scehdule is on
             #early_stopping(validation_loss/len(val_loader), net)
         
             #if early_stopping.early_stop:
             #  print("Early stopping")
             #  break
 
-            scheduler.step(validation_loss / len(val_loader))
+            if self.scheduler == 'ReduceLROnPlateau':
+                scheduler.step(validation_loss / len(val_loader))
+            elif self.scheduler == 'MultiStepLR':
+                scheduler.step()
 
             wandb.log({"lr": optimizer.param_groups[0]['lr']})
 
@@ -207,17 +278,36 @@ class DeepSVDDTrainer(BaseTrainer):
             for data in test_loader:
                 inputs, labels, idx = data
 
-                aux, tokens, momenta, id_int, mask = inputs
+                if self.net_name == 'ftops_Mlp':
+                    inputs = inputs.to(self.device)
+                    outputs = net(inputs)
+                
+                if self.net_name == 'ftops_Transformer':
+                    aux, tokens, momenta, id_int, mask = inputs
 
-                # Fetch data and move to device
-                tokens = tokens.to(self.device) 
-                momenta = momenta.to(self.device) 
-                id_int = id_int.to(self.device) 
-                mask = mask.to(self.device) 
-                aux = aux.to(self.device)
+                    # Fetch data and move to device
+                    tokens = tokens.to(self.device) 
+                    momenta = momenta.to(self.device) 
+                    id_int = id_int.to(self.device) 
+                    mask = mask.to(self.device) 
+                    aux = aux.to(self.device)
 
-                # Compute forward pass through model
-                outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
+                    # Compute forward pass through model
+                    outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
+
+                if self.net_name == 'ftops_ParticleNET':
+                    aux, tokens, momenta, mask, labels = inputs
+
+                    # Fetch data and move to device
+                    tokens = tokens.to(self.device) 
+                    momenta = momenta.to(self.device) 
+                    mask = mask.to(self.device) 
+                    aux = aux.to(self.device)
+                    labels = labels.to(self.device)
+
+                    # Compute forward pass through model
+                    outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+
 
                 #inputs = inputs.to(self.device)
                 #outputs = net(inputs)
@@ -269,6 +359,8 @@ class DeepSVDDTrainer(BaseTrainer):
 
         wandb.log({"AUC": 100*self.test_auc})
 
+        #wandb.log({"roc": wandb.plot.roc_curve(y_true=labels, y_probas=scores)})
+
         logger.info('Finished testing.')
 
     def init_center_c(self, train_loader: DataLoader, net: BaseNet, eps=0.1):
@@ -282,16 +374,46 @@ class DeepSVDDTrainer(BaseTrainer):
                 # get the inputs of the batch
                 inputs, _, _ = data
 
-                aux, tokens, momenta, id_int, mask = inputs
+                if self.net_name == 'ftops_Mlp':
+                    inputs = inputs.to(self.device)
+                    outputs = net(inputs)
+                
+                if self.net_name == 'ftops_Transformer':
+                    aux, tokens, momenta, id_int, mask = inputs
 
-                # Fetch data and move to device
-                tokens = tokens.to(self.device) 
-                momenta = momenta.to(self.device) 
-                id_int = id_int.to(self.device) 
-                mask = mask.to(self.device) 
-                aux = aux.to(self.device)
+                    # Fetch data and move to device
+                    tokens = tokens.to(self.device) 
+                    momenta = momenta.to(self.device) 
+                    id_int = id_int.to(self.device) 
+                    mask = mask.to(self.device) 
+                    aux = aux.to(self.device)
 
-                outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
+                    # Compute forward pass through model
+                    outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
+
+                if self.net_name == 'ftops_ParticleNET':
+                    aux, tokens, momenta, mask, labels = inputs
+
+                    # Fetch data and move to device
+                    tokens = tokens.to(self.device) 
+                    momenta = momenta.to(self.device) 
+                    mask = mask.to(self.device) 
+                    aux = aux.to(self.device)
+                    labels = labels.to(self.device)
+
+                    # Compute forward pass through model
+                    outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+
+                #aux, tokens, momenta, id_int, mask = inputs
+
+                ## Fetch data and move to device
+                #tokens = tokens.to(self.device) 
+                #momenta = momenta.to(self.device) 
+                #id_int = id_int.to(self.device) 
+                #mask = mask.to(self.device) 
+                #aux = aux.to(self.device)
+
+                #outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
                 n_samples += outputs.shape[0]
                 c += torch.sum(outputs, dim=0)
 
