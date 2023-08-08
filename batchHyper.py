@@ -70,7 +70,7 @@ def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFold
 
     # Set default command to run
     #command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-5 --n_epochs 500 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
-    command = "python main_iter.py 4tops %s ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class  --pretrain False " % architecture
+    command = "python main_iter.py 4tops %s ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v2/chan1/v21/h5/DarkMachines_all.h5  --objective one-class  --pretrain False " % architecture
 
     # Complete command with options
     runname_list = []
@@ -87,7 +87,15 @@ def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFold
     runname = "_".join([prefix,"_".join(runname_list)])
 
     # Simplify run name
-    runname = runname.replace("n_epochs","e").replace("lr_milestone","lrm").replace("weight_decay","wd").replace("batch_size","b").replace("rep_dim","z")
+    runname = runname.replace("n_epochs","e")
+    runname = runname.replace("lr_milestone","lrm")
+    runname = runname.replace("weight_decay","wd")
+    runname = runname.replace("batch_size","b")
+    runname = runname.replace("rep_dim","z")
+    runname = runname.replace("optimizer_name","op")
+    runname = runname.replace("scheduler","sch")
+    runname = runname.replace("ReduceLROnPlateau","Plateau")
+    runname = runname.replace("MultiStepLR","Multi")
     
     # Add run name to command
     command += " --network_name %s" % (runname)
