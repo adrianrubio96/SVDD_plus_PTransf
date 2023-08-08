@@ -173,21 +173,21 @@ class PairEmbed(nn.Module):
         self.pairwise_lv_fts = partial(pairwise_lv_fts, eps=eps, for_onnx=for_onnx)
 
         # SM interaction matrix        -  j  jb e- e+ m- m+ g
-        #sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0, 0, 0, 0],  # -
-        #                              [0, 1, 1, 0, 0, 0, 0, 1],  # j
-        #                              [0, 1, 1, 0, 0, 0, 0, 1],  # jb
-        #                              [0, 0, 0, 0, 1, 0, 0, 1],  # e-
-        #                              [0, 0, 0, 1, 0, 0, 0, 1],  # e+
-        #                              [0, 0, 0, 0, 0, 0, 1, 1],  # m-
-        #                              [0, 0, 0, 0, 0, 1, 0, 1],  # m+
-        #                              [0, 1, 1, 1, 1, 1, 1, 0]]) # g
+        sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0, 0, 0, 0],  # -
+                                      [0, 1, 1, 0, 0, 0, 0, 1],  # j
+                                      [0, 1, 1, 0, 0, 0, 0, 1],  # jb
+                                      [0, 0, 0, 0, 1, 0, 0, 1],  # e-
+                                      [0, 0, 0, 1, 0, 0, 0, 1],  # e+
+                                      [0, 0, 0, 0, 0, 0, 1, 1],  # m-
+                                      [0, 0, 0, 0, 0, 1, 0, 1],  # m+
+                                      [0, 1, 1, 1, 1, 1, 1, 0]]) # g
 
         # SM int. matrix for DarkM v11 -  j  jb l g
-        sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0],  # -
-                                      [0, 1, 1, 0, 1],  # j
-                                      [0, 1, 1, 1, 1],  # jb
-                                      [0, 0, 1, 1, 1],  # l
-                                      [0, 1, 1, 1, 0]]) # g
+        #sm_int_matrix = torch.tensor([[0, 0, 0, 0, 0],  # -
+        #                              [0, 1, 1, 0, 1],  # j
+        #                              [0, 1, 1, 1, 1],  # jb
+        #                              [0, 0, 1, 1, 1],  # l
+        #                              [0, 1, 1, 1, 0]]) # g
 
         self.register_buffer("sm_int_matrix", sm_int_matrix)
         
