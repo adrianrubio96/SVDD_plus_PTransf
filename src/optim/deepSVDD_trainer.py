@@ -237,7 +237,7 @@ class DeepSVDDTrainer(BaseTrainer):
                 logger.info('  Validation Loss: {:.8f}'
                          .format(validation_loss /len(val_loader))) #val_data_size)) 
  
-                wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader))})
+                wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader)), "lr": optimizer.param_groups[0]['lr']})
 
             #If LR scehdule is on
             #early_stopping(validation_loss/len(val_loader), net)
@@ -251,7 +251,6 @@ class DeepSVDDTrainer(BaseTrainer):
             elif self.scheduler == 'MultiStepLR':
                 scheduler.step()
 
-            wandb.log({"lr": optimizer.param_groups[0]['lr']})
 
         self.train_time = time.time() - start_time
         logger.info('Training time: %.3f' % self.train_time)
