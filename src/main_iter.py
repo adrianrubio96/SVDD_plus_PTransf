@@ -153,10 +153,10 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     dataset = load_dataset(dataset_name, data_path, normal_class, net_name)
 
     # Extract number of feautures
-    train_loader, _, _= dataset.loaders(batch_size=10)
-    for data in train_loader:
-        inputs, _, _ = data
-        break
+    #train_loader, _, _= dataset.loaders(batch_size=10)
+    #for data in train_loader:
+    #    inputs, _, _ = data
+    #    break
 
     # Start a W&B run
     wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
