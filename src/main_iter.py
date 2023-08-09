@@ -85,9 +85,12 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
               help='Specify the normal class of the dataset (all other classes are considered anomalous).')
 @click.option('--rep_dim', type=int, default=None, multiple=True, 
               help='Specify the latent space dimensions.')
+@click.option('--test_mode', type=bool, default=False,
+              help='Use existing model to test on new signals.')
+@click.option('--test_name', type=str, default='', help='Suffix to add to test results file.')
 
 
-def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim):
+def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim, test_mode, test_name):
     """
     Deep SVDD, a fully deep method for anomaly detection.
 
@@ -159,7 +162,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     #    break
 
     # Start a W&B run
-    wandb.init(project='test', name=cfg.settings['network_name']) # + '_dim_' + str(_z)) 
+    wandb.init(project='test', name=cfg.settings['network_name'].replace('all', cfg.settings['test_name'] if cfg.settings['test_name'] != '' else 'all' )) # + '_dim_' + str(_z)) 
 
     # Read network hyperparameters from yaml config as dictionary
     yaml_config = 'config.yml'
@@ -193,7 +196,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
  
     # If specified, load Deep SVDD model (radius R, center c, network weights, and possibly autoencoder weights)
     if load_model:
-        deep_SVDD.load_model(model_path=load_model, load_ae=True)
+        deep_SVDD.load_model(model_path=load_model, load_ae=False)
         logger.info('Loading model from %s.' % load_model)
 
     logger.info('Pretraining: %s' % pretrain)
@@ -219,17 +222,19 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
                            n_jobs_dataloader=n_jobs_dataloader, 
                            **set_network_dic)
 
-    # Log training details
-    logger.info('Training optimizer: %s' % cfg.settings['optimizer_name'])
-    logger.info('Training learning rate: %g' % cfg.settings['lr'])
-    logger.info('Training scheduler: %s' % cfg.settings['scheduler'])
-    logger.info('Training epochs: %d' % cfg.settings['n_epochs'])
-    logger.info('Training learning rate scheduler milestones: %s' % cfg.settings['lr_milestone'])
-    logger.info('Training batch size: %d' % cfg.settings['batch_size'])
-    logger.info('Training weight decay: %g' % cfg.settings['weight_decay'])
-
      # Train model on dataset
-    deep_SVDD.train(dataset,
+    if not cfg.settings['test_mode']:
+
+        # Log training details
+        logger.info('Training optimizer: %s' % cfg.settings['optimizer_name'])
+        logger.info('Training learning rate: %g' % cfg.settings['lr'])
+        logger.info('Training scheduler: %s' % cfg.settings['scheduler'])
+        logger.info('Training epochs: %d' % cfg.settings['n_epochs'])
+        logger.info('Training learning rate scheduler milestones: %s' % cfg.settings['lr_milestone'])
+        logger.info('Training batch size: %d' % cfg.settings['batch_size'])
+        logger.info('Training weight decay: %g' % cfg.settings['weight_decay'])
+
+        deep_SVDD.train(dataset,
                     net_name=net_name,
                     optimizer_name=cfg.settings['optimizer_name'],
                     lr=cfg.settings['lr'],
@@ -240,6 +245,8 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
                     weight_decay=cfg.settings['weight_decay'],
                     device=device,
                     n_jobs_dataloader=n_jobs_dataloader)
+    else:
+        logger.info('Running in test mode...')
 
     # Test model
     deep_SVDD.test(dataset, net_name=net_name, device=device, n_jobs_dataloader=n_jobs_dataloader)
@@ -250,9 +257,12 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     #idx_sorted = indices[labels == 0][np.argsort(scores[labels == 0])]  # sorted from lowest to highest anomaly score
 
     # Save results, model, and configuration
-    deep_SVDD.save_results(export_json=xp_path + '/results_' + cfg.settings['network_name']+ '.json') # + '_zdim_' + str(_z) + '.json')
-    deep_SVDD.save_model(export_model=xp_path + '/model_' + cfg.settings['network_name']+ '.tar', save_ae=False) #  + '_zdim_' + str(_z) + '.tar', save_ae=False)
-    cfg.save_config(export_json=xp_path + '/config_' + cfg.settings['network_name']+ '.json') # + '_zdim_' + str(_z) + '.json')
+    if not cfg.settings['test_mode']:
+        cfg.save_config(export_json=xp_path + '/config_' + cfg.settings['network_name']+ '.json') # + '_zdim_' + str(_z) + '.json')
+        deep_SVDD.save_model(export_model=xp_path + '/model_' + cfg.settings['network_name']+ '.tar', save_ae=False) #  + '_zdim_' + str(_z) + '.tar', save_ae=False)
+    
+    deep_SVDD.save_results(export_json=xp_path + '/results_' + cfg.settings['network_name'].replace('all', cfg.settings['test_name'] if cfg.settings['test_name'] != '' else 'all' ) + '.json') # + '_zdim_' + str(_z) + '.json')
+
 
     #_, labels, scores = zip(*deep_SVDD.results)
     #labels = np.array(labels)
@@ -272,7 +282,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     # Save scores plot adding trial number
 
     ## Deine plot name
-    plotname = xp_path + '/scores_' + cfg.settings['network_name']+ '_trial_*.pdf' # + '_zdim_' + str(_z) + '.pdf'
+    plotname = xp_path + '/scores_' + cfg.settings['network_name'].replace('all', cfg.settings['test_name'] if cfg.settings['test_name'] != '' else 'all' )+ '_trial_*.pdf' # + '_zdim_' + str(_z) + '.pdf'
 
     ## Get list of all files with such name
     plot_list = glob.glob(plotname)
