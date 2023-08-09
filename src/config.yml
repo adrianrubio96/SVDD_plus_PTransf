@@ -67,13 +67,11 @@ ftops_ParticleNET:
 
   ## Architecture
   net_name: ftops_ParticleNET
-  aux_fc_params: [[32, 0.1], [32, 0.1]]
   embed_dims: [128, 128, 128]
   pair_embed_dims: [64, 64, 64]
-  fc_params: [[128, 0.5]]
+  fc_params: [[128, 0.1]]
   conv_params: [[32, 32, 32], [64, 64, 64]]
   aux_fc_params: [[32, 0.1], [32, 0.1]]
-  pair_embed_dims: [64, 64, 64]
   attention_dims: [64, 64, 64]
 
   ## Input
