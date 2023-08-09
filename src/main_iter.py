@@ -67,7 +67,7 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.option('--batch_size', type=int, default=None, help='Batch size for mini-batch training.')
 @click.option('--weight_decay', type=float, default=None,
               help='Weight decay (L2 penalty) hyperparameter for Deep SVDD objective.')
-@click.option('--pretrain', type=bool, default=True,
+@click.option('--pretrain', type=bool, default=False,
               help='Pretrain neural network parameters via autoencoder.')
 @click.option('--ae_optimizer_name', type=click.Choice(['adam', 'amsgrad']), default='adam',
               help='Name of the optimizer to use for autoencoder pretraining.')
