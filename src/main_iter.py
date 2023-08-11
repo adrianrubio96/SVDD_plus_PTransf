@@ -53,7 +53,7 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.option('--nu', type=float, default=0.1, help='Deep SVDD hyperparameter nu (must be 0 < nu <= 1).')
 @click.option('--device', type=str, default='cuda', help='Computation device to use ("cpu", "cuda", "cuda:2", etc.).')
 @click.option('--seed', type=int, default=-1, help='Set seed. If -1, use randomization.')
-@click.option('--optimizer_name', type=click.Choice(['adam', 'amsgrad']), default=None,
+@click.option('--optimizer_name', type=click.Choice(['adam', 'amsgrad', 'sgd']), default=None,
               help='Name of the optimizer to use for Deep SVDD network training.')
 @click.option('--scheduler', type=click.Choice(['MultiStepLR', 'ReduceLROnPlateau']), default=None,
               help='Name of the scheduler to use for learning rate evolution duting training.')
