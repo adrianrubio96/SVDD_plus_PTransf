@@ -56,7 +56,7 @@ In this example, you will find a folder called `batch__ParT-scan-test` and a sub
 ## Run evaluation locally
 The trained models are saved in .tar files. Following previous example, the model would be saved as `../log/DarkMachines/model_ParT_DarkM_v21_opadam_e100_lr1e-4_b500_schPlateau_wd0.5e-6_z10-test.tar`. The models can be loaded in order to evaluate on different signals. The command to run such a local test is:
 ```
-    gpurun python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v2/chan1/v21/h5/DarkMachines_signal_name.h5  --objective one-class --network_name ParT_DarkM_v21_opadam_e100_lr1e-4_b500_schPlateau_wd0.5e-6_z10-test --test_mode True --test_name signal_name --load_model ../log/DarkMachines/model_ParT_DarkM_v21_opadam_e100_lr1e-4_b500_schPlateau_wd0.5e-6_z10-test.tar
+gpurun python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v2/chan1/v21/h5/DarkMachines_signal_name.h5  --objective one-class --network_name ParT_DarkM_v21_opadam_e100_lr1e-4_b500_schPlateau_wd0.5e-6_z10-test --test_mode True --test_name signal_name --load_model ../log/DarkMachines/model_ParT_DarkM_v21_opadam_e100_lr1e-4_b500_schPlateau_wd0.5e-6_z10-test.tar
 ```
 where `signal_name` can be any of the signals available in the DarkMachines dataset and for which a h5 file has been created.
 
