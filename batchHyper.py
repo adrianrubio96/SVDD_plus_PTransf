@@ -31,6 +31,7 @@ def main ():
     weight_decay = config.weight_decay if config.weight_decay else None
     batch_size = config.batch_size if config.batch_size else None
     rep_dim = config.rep_dim if config.rep_dim else None
+    scheduler = config.scheduler if config.scheduler else None
 
     # Make dictionary of hyperparameters to be scanned
     hyperparameters = {}
@@ -40,6 +41,7 @@ def main ():
     if weight_decay: hyperparameters["weight_decay"] = weight_decay.split(",")
     if batch_size: hyperparameters["batch_size"] = batch_size.split(",")
     if rep_dim: hyperparameters["rep_dim"] = rep_dim.split(",")
+    if scheduler: hyperparameters["scheduler"] = scheduler.split(",")
 
     # Make the batch folder
     if os.path.exists (batchFolder):
@@ -153,6 +155,7 @@ def optParser():
     parser.add_option("-f","--folder-name", dest="name", help="Name of the folder",default=None)
     parser.add_option("-p","--prefix", dest="prefix", help="Default name of the runs",default=None)
     parser.add_option("-a","--architecture", dest="architecture", help="String name of the architecture: ftops_Mlp, ftops_Transformer, ftops_ParticleNET",default=None)
+    parser.add_option("-s","--scheduler", dest="scheduler", help="String name of the scheduler: ReduceLROnPlateau, MultiStepLR",default=None)
     parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default=None)
 
     (config, sys.argv[1:]) = parser.parse_args(sys.argv[1:])
