@@ -15,22 +15,16 @@ def convert_data(data):
     n_data = data.shape[0]
 
     # One-hot encoding for ids
-    #print("data[0,:18]: ", data[0,:18])
-    # Get maximum value of data[:,:18]
-    data_maxs = data[:,:18].max(axis=0)
-    #print("data_maxs: ", data_maxs)
-    #print("data[6,:18]: ", data[6,:])
-
     data_ids = torch.nn.functional.one_hot(data[:,:18].long()).float()
-    #print("data_ids.shape: ", data_ids.shape)
-    #print("data_ids: ", data_ids[0,:,:])
 
     # MET data
     data_aux = data[:,18:20]
 
     # Particle momenta in E, pt, eta, phi
     data_momenta = data[:, 20:].reshape(data.shape[0], 18, 4)
-    #print("data_momenta.shape: ", data_momenta.shape)
+
+    # Distance metrics eta, phi
+    data_distance = data_momenta[:,:,2:]
 
     # Particle data for interaction term
     data_four_vec = torch.zeros_like(data_momenta)
@@ -42,25 +36,22 @@ def convert_data(data):
     # Particle ids for interaction term
     data_id_int = data[:,:18].long()
 
-
     # Set back to zero
     data_four_vec[data_momenta == 0.] = 0.
 
     # Transpose 
     data_ids = torch.transpose(data_ids, 1, 2)
-    #print("data_ids_transpose.shape: ", data_ids.shape)
+    data_distance = torch.transpose(data_distance, 1, 2)
     data_momenta = torch.transpose(data_momenta, 1, 2)
-    #print("data_momenta_transpose.shape: ", data_momenta.shape)
     data_four_vec = torch.transpose(data_four_vec, 1, 2)
 
     # Tokens are concat of momenta and ids
     data_tokens = torch.cat((data_momenta, data_ids), dim=1)
-    #print("data_momenta_and_ids.shape: ", data_tokens.shape)
 
     # Generate padding mask
     data_mask = (data_momenta[:,0,:] != 0.).unsqueeze(1)
 
-    return data_aux, data_tokens, data_four_vec, data_id_int, data_mask
+    return data_aux, data_tokens, data_four_vec, data_id_int, data_distance, data_mask
 
 
 class FTOPS():
@@ -116,17 +107,17 @@ class FTOPS():
             if self.mode == 'train':
                 train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
                 self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
-                data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train = convert_data(train_data)
+                data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, _, data_mask_train = convert_data(train_data)
                 self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train)
             if self.mode == 'validation':
                 val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
                 self.val_labels = torch.tensor(hf.get('y_val'), dtype=torch.long)
-                data_aux_val, data_tokens_val, data_momenta_val, data_id_int_val, data_mask_val = convert_data(val_data)
+                data_aux_val, data_tokens_val, data_momenta_val, data_id_int_val, _, data_mask_val = convert_data(val_data)
                 self.val_data = torch.utils.data.TensorDataset(data_aux_val,   data_tokens_val,   data_momenta_val,   data_id_int_val,   data_mask_val)
             if self.mode == 'test':
                 test_data = torch.tensor(np.array(hf.get('X_test')), dtype=torch.float32)
                 self.test_labels = torch.tensor(hf.get('y_test'), dtype=torch.long)
-                data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, data_mask_test = convert_data(test_data)
+                data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, _, data_mask_test = convert_data(test_data)
                 self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, data_mask_test)
 
         if net_name == 'ftops_ParticleNET':
@@ -140,18 +131,18 @@ class FTOPS():
             if self.mode == 'train':
                 train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
                 self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
-                data_aux_train, data_tokens_train, data_momenta_train, _, data_mask_train = convert_data(train_data)
-                self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_momenta_train, data_mask_train, self.train_labels)
+                data_aux_train, data_tokens_train, data_momenta_train, _, data_distance_train, data_mask_train = convert_data(train_data)
+                self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_distance_train, data_momenta_train, data_mask_train, self.train_labels)
             if self.mode == 'validation':
                 val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
                 self.val_labels = torch.tensor(hf.get('y_val'), dtype=torch.long)
-                data_aux_val, data_tokens_val, data_momenta_val, _, data_mask_val = convert_data(val_data)
-                self.val_data = torch.utils.data.TensorDataset(data_aux_val,   data_tokens_val,   data_momenta_val, data_mask_val, self.val_labels)
+                data_aux_val, data_tokens_val, data_momenta_val, _, data_distance_val, data_mask_val = convert_data(val_data)
+                self.val_data = torch.utils.data.TensorDataset(data_aux_val, data_tokens_val, data_distance_val, data_momenta_val, data_mask_val, self.val_labels)
             if self.mode == 'test':
                 test_data = torch.tensor(np.array(hf.get('X_test')), dtype=torch.float32)
                 self.test_labels = torch.tensor(hf.get('y_test'), dtype=torch.long)
-                data_aux_test, data_tokens_test, data_momenta_test, _, data_mask_test = convert_data(test_data)
-                self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_momenta_test, data_mask_test, self.test_labels)
+                data_aux_test, data_tokens_test, data_momenta_test, _, data_distance_test, data_mask_test = convert_data(test_data)
+                self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_distance_test, data_momenta_test, data_mask_test, self.test_labels)
 
   
     def __len__(self):

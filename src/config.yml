@@ -71,6 +71,7 @@ ftops_ParticleNET:
   embed_dims: [128, 128, 128]
   pair_embed_dims: [64, 64, 64]
   fc_params: [[128, 0.1]]
+  knn: 5
   conv_params: [[32, 32, 32], [64, 64, 64]]
   aux_fc_params: [[32, 0.1], [32, 0.1]]
   attention_dims: [64, 64, 64]

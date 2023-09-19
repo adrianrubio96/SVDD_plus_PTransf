@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import math 
+import torch.nn.functional as F
 from functools import partial
 
 '''Based on https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py.'''
@@ -81,11 +82,11 @@ class PairEmbed(nn.Module):
         self.pairwise_lv_fts = partial(pairwise_lv_fts, eps=eps)
 
         input_dim = 2
-        module_list = [nn.BatchNorm1d(input_dim)] if normalize_input else []
+        module_list = [nn.BatchNorm1d(input_dim, affine=False)] if normalize_input else []
         for dim in dims:
             module_list.extend([
-                nn.Conv1d(input_dim, dim, 1),
-                nn.BatchNorm1d(dim),
+                nn.Conv1d(input_dim, dim, 1, bias=False),
+                nn.BatchNorm1d(dim, affine=False),
                 nn.ReLU(),
             ])
             input_dim = dim
@@ -135,16 +136,16 @@ class EdgeConvBlock(nn.Module):
         self.activation = activation
         self.num_layers = len(out_feats)
 
-        self.pair_conv = nn.Conv2d(pair_embed_dim, in_feat, kernel_size=1) if pair_embed_dim is not None else None
+        self.pair_conv = nn.Conv2d(pair_embed_dim, in_feat, kernel_size=1, bias=False) if pair_embed_dim is not None else None
 
         self.convs = nn.ModuleList()
         for i in range(self.num_layers):
-            self.convs.append(nn.Conv2d(2 * in_feat if i == 0 else out_feats[i - 1], out_feats[i], kernel_size=1, bias=False if self.batch_norm else True))
+            self.convs.append(nn.Conv2d(2 * in_feat if i == 0 else out_feats[i - 1], out_feats[i], kernel_size=1, bias=False))
 
         if batch_norm:
             self.bns = nn.ModuleList()
             for i in range(self.num_layers):
-                self.bns.append(nn.BatchNorm2d(out_feats[i]))
+                self.bns.append(nn.BatchNorm2d(out_feats[i], affine=False))
 
         if activation:
             self.acts = nn.ModuleList()
@@ -155,7 +156,7 @@ class EdgeConvBlock(nn.Module):
             self.sc = None
         else:
             self.sc = nn.Conv1d(in_feat, out_feats[-1], kernel_size=1, bias=False)
-            self.sc_bn = nn.BatchNorm1d(out_feats[-1])
+            self.sc_bn = nn.BatchNorm1d(out_feats[-1], affine=False)
 
         if activation:
             self.sc_act = nn.ReLU()
@@ -191,26 +192,28 @@ class EdgeConvBlock(nn.Module):
 
 class ParticleNet(nn.Module):
 
-    def __init__(self,
-                 input_dims,
-                 num_classes,
-                 k=17,
-                 conv_params=[(32, 32, 32), (64, 64, 64)],
-                 fc_params=[(128, 0.1)],
-                 aux_dims=None,
-                 aux_fc_params=[(32, 0.1), (32, 0.1)],
-                 pair_embed_dims=[64, 64, 64],
-                 use_fusion=True,
-                 use_fts_bn=True,
-                 use_counts=True,
-                 **kwargs):
-        super(ParticleNet, self).__init__(**kwargs)
+    def __init__(self, **kwargs):
+        
+        #super(ParticleNet, self).__init__(**kwargs)
+        super().__init__()
+        input_dims = kwargs['input_dim']
+        
+        k = kwargs['knn']
+        conv_params = kwargs['conv_params']
+        fc_params = kwargs['fc_params']
+        aux_dims = None if kwargs['aux_dim'] == 'None' else kwargs['aux_dim']
+        aux_fc_params = kwargs['aux_fc_params']
+        pair_embed_dims = kwargs['pair_embed_dims']
+        #attention_dims = kwargs['attention_dims']
 
-        self.use_fts_bn = use_fts_bn
+        # Used internally
+        self.rep_dim = kwargs['training']['rep_dim']
+        self.use_fts_bn = True
+        self.use_fusion = True
+        self.use_counts = True
+
         if self.use_fts_bn:
-            self.bn_fts = nn.BatchNorm1d(input_dims)
-
-        self.use_counts = use_counts
+            self.bn_fts = nn.BatchNorm1d(input_dims, affine=False)
 
         self.edge_convs = nn.ModuleList()
         for idx, layer_param in enumerate(conv_params):
@@ -218,11 +221,10 @@ class ParticleNet(nn.Module):
             pair_embed_dim = pair_embed_dims[-1] if pair_embed_dims is not None else None
             self.edge_convs.append(EdgeConvBlock(k=k, in_feat=in_feat, out_feats=layer_param, pair_embed_dim=pair_embed_dim))
 
-        self.use_fusion = use_fusion
         if self.use_fusion:
             in_chn = sum(x[-1] for x in conv_params)
             out_chn = np.clip((in_chn // 128) * 128, 128, 1024)
-            self.fusion_block = nn.Sequential(nn.Conv1d(in_chn, out_chn, kernel_size=1, bias=False), nn.BatchNorm1d(out_chn), nn.ReLU())
+            self.fusion_block = nn.Sequential(nn.Conv1d(in_chn, out_chn, kernel_size=1, bias=False), nn.BatchNorm1d(out_chn, affine=False), nn.ReLU())
 
         fcs = []
         for idx, layer_param in enumerate(fc_params):
@@ -231,8 +233,8 @@ class ParticleNet(nn.Module):
                 in_chn = out_chn if self.use_fusion else conv_params[-1][1][-1]
             else:
                 in_chn = fc_params[idx - 1][0]
-            fcs.append(nn.Sequential(nn.Linear(in_chn, channels), nn.ReLU(), nn.Dropout(drop_rate)))
-        fcs.append(nn.Linear(fc_params[-1][0], num_classes))
+            fcs.append(nn.Sequential(nn.Linear(in_chn, channels, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
+        fcs.append(nn.Linear(fc_params[-1][0], self.rep_dim, bias=False)) #num_classes))
         self.fc = nn.Sequential(*fcs)
 
         self.pair_embed = PairEmbed(pair_embed_dims) if pair_embed_dims is not None else None
@@ -241,10 +243,10 @@ class ParticleNet(nn.Module):
             aux_fcs = []
             in_dim = aux_dims
             for out_dim, drop_rate in aux_fc_params:
-                aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim), nn.ReLU(), nn.Dropout(drop_rate)))
+                aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
                 in_dim = out_dim
             out_dim = out_chn if self.use_fusion else conv_params[-1][1][-1]
-            aux_fcs.append(nn.Linear(in_dim, out_dim))
+            aux_fcs.append(nn.Linear(in_dim, out_dim, bias=False))
             self.aux_fc = nn.Sequential(*aux_fcs)
         else:
             self.aux_fc = None

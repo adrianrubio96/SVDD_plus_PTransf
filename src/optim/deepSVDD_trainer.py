@@ -131,10 +131,11 @@ class DeepSVDDTrainer(BaseTrainer):
                     outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
 
                 if self.net_name == 'ftops_ParticleNET':
-                    aux, tokens, momenta, mask, labels = inputs
+                    aux, tokens, points, momenta, mask, labels = inputs
 
                     # Fetch data and move to device
                     tokens = tokens.to(self.device) 
+                    points = points.to(self.device)
                     momenta = momenta.to(self.device) 
                     mask = mask.to(self.device) 
                     aux = aux.to(self.device)
@@ -144,7 +145,7 @@ class DeepSVDDTrainer(BaseTrainer):
                     optimizer.zero_grad()
 
                     # Compute forward pass through model
-                    outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+                    outputs = net(points, tokens, vectors=momenta, mask=mask, aux=aux)
 
                 
                 ## Compute loss
@@ -209,17 +210,18 @@ class DeepSVDDTrainer(BaseTrainer):
                         val_data_size += tokens.shape[0]
 
                     if self.net_name == 'ftops_ParticleNET':
-                        aux, tokens, momenta, mask, labels = inputs
+                        aux, tokens, points, momenta, mask, labels = inputs
     
                         # Fetch data and move to device
                         tokens = tokens.to(self.device) 
+                        points = points.to(self.device)
                         momenta = momenta.to(self.device) 
                         mask = mask.to(self.device) 
                         aux = aux.to(self.device)
                         labels = labels.to(self.device)
     
                         # Compute forward pass through model
-                        outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+                        outputs = net(points, tokens, vectors=momenta, mask=mask, aux=aux)
 
                         val_data_size += tokens.shape[0]
 
@@ -295,17 +297,18 @@ class DeepSVDDTrainer(BaseTrainer):
                     outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
 
                 if self.net_name == 'ftops_ParticleNET':
-                    aux, tokens, momenta, mask, labels = inputs
+                    aux, tokens, points, momenta, mask, labels = inputs
 
                     # Fetch data and move to device
-                    tokens = tokens.to(self.device) 
+                    tokens = tokens.to(self.device)
+                    points = points.to(self.device)
                     momenta = momenta.to(self.device) 
                     mask = mask.to(self.device) 
                     aux = aux.to(self.device)
                     labels = labels.to(self.device)
 
                     # Compute forward pass through model
-                    outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+                    outputs = net(points, tokens, vectors=momenta, mask=mask, aux=aux)
 
 
                 #inputs = inputs.to(self.device)
@@ -391,17 +394,18 @@ class DeepSVDDTrainer(BaseTrainer):
                     outputs = net(tokens, v=momenta, ids=id_int, mask=mask, aux=aux)
 
                 if self.net_name == 'ftops_ParticleNET':
-                    aux, tokens, momenta, mask, labels = inputs
+                    aux, tokens, points, momenta, mask, labels = inputs
 
                     # Fetch data and move to device
                     tokens = tokens.to(self.device) 
+                    points = points.to(self.device)
                     momenta = momenta.to(self.device) 
                     mask = mask.to(self.device) 
-                    aux = aux.to(self.device)
+                    aux = aux.to(self.device) 
                     labels = labels.to(self.device)
 
                     # Compute forward pass through model
-                    outputs = net(tokens, vectors=momenta, mask=mask, aux=aux)
+                    outputs = net(points, tokens, vectors=momenta, mask=mask, aux=aux)
 
                 #aux, tokens, momenta, id_int, mask = inputs
 
