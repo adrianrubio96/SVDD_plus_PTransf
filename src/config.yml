@@ -70,17 +70,17 @@ ftops_ParticleNET:
   net_name: ftops_ParticleNET
   embed_dims: [128, 128, 128]
   pair_embed_dims: [64, 64, 64]
-  fc_params: [[128, 0.1]]
+  fc_params: [[64, 0.], [256, 0.], [64, 0.]]
   knn: 5
   conv_params: [[32, 32, 32], [64, 64, 64]]
-  aux_fc_params: [[32, 0.1], [32, 0.1]]
-  attention_dims: [64, 64, 64]
+  aux_fc_params: []
+  #attention_dims: [64, 64, 64]
 
   ## Input
   input_dim: 12 ## for j,b,e-,e+,mu-,mu+,g
   #input_dim: 9 ## for j,b,l,g
   num_features: 18
-  aux_dim: None
+  aux_dim: 2
 
   ## Default hyperparameters for training
   training:

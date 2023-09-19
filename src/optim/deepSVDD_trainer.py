@@ -139,7 +139,6 @@ class DeepSVDDTrainer(BaseTrainer):
                     momenta = momenta.to(self.device) 
                     mask = mask.to(self.device) 
                     aux = aux.to(self.device)
-                    labels = labels.to(self.device)
 
                     # Zero the network parameter gradients
                     optimizer.zero_grad()
