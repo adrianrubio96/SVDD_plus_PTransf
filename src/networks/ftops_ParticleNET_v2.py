@@ -1,10 +1,11 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import math 
+import torch.nn.functional as F
+import math
 from functools import partial
 
-'''Based on https://github.com/WangYueFt/dgcnn/blob/master/pytorch/model.py.'''
+from base.base_net import BaseNet
 
 @torch.jit.script
 def delta_phi(a, b):
@@ -39,7 +40,7 @@ def to_ptrapphim(x, return_mass=True, eps=1e-8):
         m = torch.sqrt(to_m2(x, eps=eps))
         return torch.cat((pt, rapidity, phi, m), dim=1)
 
-def pairwise_lv_fts(xi, xj, eps=1e-8):
+def pairwise_lv_fts_simple(xi, xj, eps=1e-8):
     xij = xi + xj
     pti, rapi, phii = to_ptrapphim(xi, False, eps=None).split((1, 1, 1), dim=1)
     ptj, rapj, phij = to_ptrapphim(xj, False, eps=None).split((1, 1, 1), dim=1)
@@ -51,34 +52,14 @@ def pairwise_lv_fts(xi, xj, eps=1e-8):
     lnm2 = torch.log(to_m2(xij, eps=eps))
 
     return torch.cat([lndeltaij, lnm2], dim=1)
-
-def knn(x, k):
-    inner = -2 * torch.matmul(x.transpose(2, 1), x)
-    xx = torch.sum(x ** 2, dim=1, keepdim=True)
-    pairwise_distance = -xx - inner - xx.transpose(2, 1)
-    idx = pairwise_distance.topk(k=k + 1, dim=-1)[1][:, :, 1:]  # (batch_size, num_points, k)
-    return idx
-
-def get_graph_feature(x, k, idx):
-    batch_size, num_dims, num_points = x.size()
-
-    idx_base = torch.arange(0, batch_size, device=x.device).view(-1, 1, 1) * num_points
-    idx = idx + idx_base
-    idx = idx.view(-1)
-
-    fts = x.transpose(2, 1).reshape(-1, num_dims)  # -> (batch_size, num_points, num_dims) -> (batch_size*num_points, num_dims)
-    fts = fts[idx, :].view(batch_size, num_points, k, num_dims)  # neighbors: -> (batch_size*num_points*k, num_dims) -> ...
-    fts = fts.permute(0, 3, 1, 2).contiguous()  # (batch_size, num_dims, num_points, k)
-    x = x.view(batch_size, num_dims, num_points, 1).repeat(1, 1, 1, k)
-
-    fts = torch.cat((x, fts - x), dim=1)  # ->(batch_size, 2*num_dims, num_points, k)
-    return fts
-
+    # return torch.cat([lndeltaij, lnz], dim=1)
+    # return torch.cat([lnm2, lnz], dim=1)
+    
 class PairEmbed(nn.Module):
     def __init__(self, dims, normalize_input=True, eps=1e-8):
         super().__init__()
 
-        self.pairwise_lv_fts = partial(pairwise_lv_fts, eps=eps)
+        self.pairwise_lv_fts = partial(pairwise_lv_fts_simple, eps=eps)
 
         input_dim = 2
         module_list = [nn.BatchNorm1d(input_dim)] if normalize_input else []
@@ -110,6 +91,7 @@ class PairEmbed(nn.Module):
         
         return y
 
+
 class EdgeConvBlock(nn.Module):
     r"""EdgeConv layer.
     Introduced in "`Dynamic Graph CNN for Learning on Point Clouds
@@ -128,9 +110,8 @@ class EdgeConvBlock(nn.Module):
         Whether to include batch normalization on messages.
     """
 
-    def __init__(self, k, in_feat, out_feats, batch_norm=True, activation=True, pair_embed_dim=None,):
+    def __init__(self, in_feat, out_feats, batch_norm=True, activation=True, pair_embed_dim=None, attention_dims=None):
         super(EdgeConvBlock, self).__init__()
-        self.k = k
         self.batch_norm = batch_norm
         self.activation = activation
         self.num_layers = len(out_feats)
@@ -160,15 +141,39 @@ class EdgeConvBlock(nn.Module):
         if activation:
             self.sc_act = nn.ReLU()
 
-    def forward(self, points, features, pair_embed=None):
-        topk_indices = knn(points, self.k)
+        if attention_dims is not None:
+            module_list = []
+            in_dim = out_feats[-1]
+            for idx, out_dim in enumerate(attention_dims):
+                module_list.extend([nn.Conv2d(in_dim, out_dim, kernel_size=1, bias=False),
+                                    nn.BatchNorm2d(out_dim),
+                                    nn.ReLU(),
+                                   ])
+                in_dim = out_dim
+            module_list.extend([nn.Conv2d(in_dim, 1, kernel_size=1)])
 
-        x = get_graph_feature(features, self.k, topk_indices)
+            self.attention = nn.Sequential(*module_list)
+        else:
+            self.attention = None
+
+
+    def forward(self, features, pair_embed=None):
+        # Set up message indices
+        message_indices = torch.arange(features.shape[-1], device=features.device)[None, :].repeat(features.shape[-1], 1)
+        message_indices[message_indices >= torch.arange(features.shape[-1], device=features.device)[:, None]] += 1
+        message_indices = message_indices[:,:-1][None, None, :, :].expand(features.shape[0], features.shape[1], -1, -1)
+        
+        # Set up message
+        x_features = features.unsqueeze(-1).expand(-1, -1, -1, features.shape[-1]-1)
+        x_neighbors = torch.gather(features.unsqueeze(-1).expand(-1, -1, -1, features.shape[-1]).transpose(-1, -2), -1, message_indices).contiguous()
 
         if pair_embed is not None:
             x_pair = self.pair_conv(pair_embed)
-            x_pair = torch.gather(x_pair, -1, topk_indices.unsqueeze(1).expand(-1, x_pair.shape[1], -1, -1))
-            x[:,x_pair.shape[1]:,:,:] += x_pair
+            x_pair = torch.gather(x_pair, -1, message_indices)
+            x_neighbors += x_pair
+
+        # Not sure if this contiguous is needed
+        x = torch.cat((x_features, x_neighbors - x_features), 1).contiguous()
 
         for conv, bn, act in zip(self.convs, self.bns, self.acts):
             x = conv(x)  # (N, C', P, K)
@@ -177,7 +182,11 @@ class EdgeConvBlock(nn.Module):
             if act:
                 x = act(x)
 
-        fts = x.mean(dim=-1)  # (N, C, P)
+        if self.attention is not None:
+            w = torch.nn.functional.softmax(self.attention(x), dim=-1).permute(0,2,3,1)
+            fts = torch.matmul(x.permute(0,2,1,3), w).squeeze().permute(0,2,1)
+        else:
+            fts = x.mean(dim=-1)  # (N, C, P)
 
         # shortcut
         if self.sc:
@@ -190,35 +199,37 @@ class EdgeConvBlock(nn.Module):
 
 
 class ParticleNet(nn.Module):
+#class ParticleNet(BaseNet):
 
-    def __init__(self,
-                 input_dims,
-                 num_classes,
-                 k=17,
-                 conv_params=[(32, 32, 32), (64, 64, 64)],
-                 fc_params=[(128, 0.1)],
-                 aux_dims=None,
-                 aux_fc_params=[(32, 0.1), (32, 0.1)],
-                 pair_embed_dims=[64, 64, 64],
-                 use_fusion=True,
-                 use_fts_bn=True,
-                 use_counts=True,
-                 **kwargs):
-        super(ParticleNet, self).__init__(**kwargs)
+    def __init__(self, **kwargs):
+        
+        #super(ParticleNet, self).__init__(**kwargs)
+        super().__init__()
+        input_dim = kwargs['input_dim']
+        
+        conv_params = kwargs['conv_params']
+        fc_params = kwargs['fc_params']
+        aux_dim = None if kwargs['aux_dim'] == 'None' else kwargs['aux_dim']
+        aux_fc_params = kwargs['aux_fc_params']
+        pair_embed_dims = kwargs['pair_embed_dims']
+        attention_dims = kwargs['attention_dims']
+        for_segmentation=False
 
-        self.use_fts_bn = use_fts_bn
+        # Used internally
+        self.rep_dim = kwargs['training']['rep_dim']
+        self.use_fts_bn = True
+        self.use_fusion = True
+        self.use_counts = True
+        
         if self.use_fts_bn:
-            self.bn_fts = nn.BatchNorm1d(input_dims)
-
-        self.use_counts = use_counts
+            self.bn_fts = nn.BatchNorm1d(input_dim)
 
         self.edge_convs = nn.ModuleList()
-        for idx, layer_param in enumerate(conv_params):
-            in_feat = input_dims if idx == 0 else conv_params[idx - 1][-1]
+        for idx, channels in enumerate(conv_params):
+            in_feat = input_dim if idx == 0 else conv_params[idx - 1][-1]
             pair_embed_dim = pair_embed_dims[-1] if pair_embed_dims is not None else None
-            self.edge_convs.append(EdgeConvBlock(k=k, in_feat=in_feat, out_feats=layer_param, pair_embed_dim=pair_embed_dim))
+            self.edge_convs.append(EdgeConvBlock(in_feat=in_feat, out_feats=channels, pair_embed_dim=pair_embed_dim, attention_dims=attention_dims))
 
-        self.use_fusion = use_fusion
         if self.use_fusion:
             in_chn = sum(x[-1] for x in conv_params)
             out_chn = np.clip((in_chn // 128) * 128, 128, 1024)
@@ -231,31 +242,29 @@ class ParticleNet(nn.Module):
                 in_chn = out_chn if self.use_fusion else conv_params[-1][1][-1]
             else:
                 in_chn = fc_params[idx - 1][0]
-            fcs.append(nn.Sequential(nn.Linear(in_chn, channels), nn.ReLU(), nn.Dropout(drop_rate)))
-        fcs.append(nn.Linear(fc_params[-1][0], num_classes))
+            fcs.append(nn.Sequential(nn.Linear(in_chn, channels, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
+        fcs.append(nn.Linear(fc_params[-1][0], self.rep_dim, bias=False))
         self.fc = nn.Sequential(*fcs)
 
         self.pair_embed = PairEmbed(pair_embed_dims) if pair_embed_dims is not None else None
 
-        if aux_dims is not None:
+        if aux_dim is not None:
             aux_fcs = []
-            in_dim = aux_dims
+            in_dim = aux_dim
             for out_dim, drop_rate in aux_fc_params:
-                aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim), nn.ReLU(), nn.Dropout(drop_rate)))
+                aux_fcs.append(nn.Sequential(nn.Linear(in_dim, out_dim, bias=False), nn.ReLU(), nn.Dropout(drop_rate)))
                 in_dim = out_dim
             out_dim = out_chn if self.use_fusion else conv_params[-1][1][-1]
-            aux_fcs.append(nn.Linear(in_dim, out_dim))
+            aux_fcs.append(nn.Linear(in_dim, out_dim, bias=False))
             self.aux_fc = nn.Sequential(*aux_fcs)
         else:
             self.aux_fc = None
 
-    def forward(self, points, features, vectors=None, mask=None, aux=None):
+    def forward(self, features, vectors=None, mask=None, aux=None):
         if mask is None:
             mask = (features.abs().sum(dim=1, keepdim=True) != 0)  # (N, 1, P)
-        points *= mask
-        features *= mask
         vectors *= mask
-        coord_shift = (mask == 0) * 1e9
+        features *= mask
         if self.use_counts:
             counts = mask.float().sum(dim=-1)
             counts = torch.max(counts, torch.ones_like(counts))  # >=1
@@ -269,11 +278,10 @@ class ParticleNet(nn.Module):
             fts = features
         outputs = []
         for idx, conv in enumerate(self.edge_convs):
-            pts = (points if idx == 0 else fts) + coord_shift
             if self.pair_embed is not None:
-                fts = conv(pts, fts, pair_embed=pair_embedding) * mask
+                fts = conv(fts, pair_embed=pair_embedding) * mask
             else:
-                fts = conv(pts, fts) * mask
+                fts = conv(fts) * mask
             
             if self.use_fusion:
                 outputs.append(fts)
@@ -285,10 +293,9 @@ class ParticleNet(nn.Module):
         else:
             x = fts.mean(dim=-1)
 
-
         if self.aux_fc is not None and aux is not None:
             x += self.aux_fc(aux)
 
         output = self.fc(x)
-        
+
         return output
