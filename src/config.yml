@@ -71,7 +71,7 @@ ftops_ParticleNET:
   embed_dims: [128, 128, 128]
   pair_embed_dims: [64, 64, 64]
   fc_params: [[64, 0.], [256, 0.], [64, 0.]]
-  knn: 5
+  knn: 2
   conv_params: [[32, 32, 32], [64, 64, 64]]
   aux_fc_params: []
   #attention_dims: [64, 64, 64]
@@ -86,7 +86,7 @@ ftops_ParticleNET:
   training:
     optimizer_name: adam
     batch_size: 500
-    n_epochs: 300
+    n_epochs: 500
     lr: 0.00001
     scheduler: ReduceLROnPlateau
     lr_milestone: 50
