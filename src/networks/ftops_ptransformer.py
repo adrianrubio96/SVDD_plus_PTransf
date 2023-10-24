@@ -445,9 +445,9 @@ class ParticleTransformer(BaseNet):
                             v = v[:, :, :maxlen]
                             ids = ids[:, :maxlen]
                 
-                print("mask", mask.shape)
+                #print("mask", mask.shape)
             padding_mask = ~mask.squeeze(1)  # (N, P)
-            print("padding_mask", padding_mask.shape)
+            #print("padding_mask", padding_mask.shape)
 
         with torch.cuda.amp.autocast(enabled=self.use_amp):  
             # input embedding
