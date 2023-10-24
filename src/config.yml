@@ -29,6 +29,7 @@ ftops_Transformer:
 
   ## Architecture
   net_name: ftops_Transformer
+  net_version: standard ## Options: standard, SMids, SMcoupling
   num_heads: 8
   num_layers: 8
   num_cls_layers: 2
@@ -41,7 +42,7 @@ ftops_Transformer:
   activation: gelu
   add_bias_attn: False
   seq_len: -1
-  trim: True
+  trim: False
   for_inference: False
   use_amp: False
 

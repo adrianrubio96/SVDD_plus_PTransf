@@ -1,7 +1,9 @@
 from .mnist_LeNet import MNIST_LeNet, MNIST_LeNet_Autoencoder
 from .cifar10_LeNet import CIFAR10_LeNet, CIFAR10_LeNet_Autoencoder
 from .cifar10_LeNet_elu import CIFAR10_LeNet_ELU, CIFAR10_LeNet_ELU_Autoencoder
-from .ftops_ptransformer import ParticleTransformer
+#from .ftops_ptransformer import ParticleTransformer
+#from .ftops_ptransformer_SMids import ParticleTransformer
+#from .ftops_ptransformer_SMcoupling import ParticleTransformer
 from .ftops_Mlp import FTOPS_Mlp
 from .ftops_ParticleNET import ParticleNet
 
@@ -36,6 +38,7 @@ def build_network(
     
 #    # For ParticleTransformer
     net_name = kwargs['net_name']
+    net_version = kwargs['net_version']
 #    input_dim = kwargs['input_dim']
 #    rep_dim = kwargs['rep_dim']
 #    aux_dim = kwargs['aux_dim']
@@ -77,6 +80,14 @@ def build_network(
         net = CIFAR10_LeNet_ELU()
     
     if net_name == 'ftops_Transformer':
+
+        if net_version == 'SMids':
+            from .ftops_ptransformer_SMids import ParticleTransformer
+        elif net_version == 'SMcoupling':
+            from .ftops_ptransformer_SMcoupling import ParticleTransformer
+        elif net_version == 'standard':
+            from .ftops_ptransformer import ParticleTransformer
+
         net = ParticleTransformer(
                  #input_dim,
                  #rep_dim,

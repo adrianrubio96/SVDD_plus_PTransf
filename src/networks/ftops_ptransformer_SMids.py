@@ -85,8 +85,8 @@ def pairwise_lv_fts(xi, xj, idi, idj, sm_int_matrix, eps=1e-8, for_onnx=False):
 
     id_int = sm_int_matrix[idi, idj].unsqueeze(1).float()
 
-    # return torch.cat([lndeltaij, lnm2, id_int], dim=1)
-    return torch.cat([lndeltaij, lnz], dim=1)
+    return torch.cat([lndeltaij, lnm2, id_int], dim=1)
+    #return torch.cat([lndeltaij, lnz], dim=1)
     # return torch.cat([lnm2, lnz], dim=1)
 
 def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
@@ -184,8 +184,8 @@ class PairEmbed(nn.Module):
 
         self.register_buffer("sm_int_matrix", sm_int_matrix)
         
-        # input_dim = 3 # includes the SM ids
-        input_dim = 2 # without the SM ids
+        input_dim = 3 # includes the SM ids
+        #input_dim = 2 # without the SM ids
         module_list = [nn.BatchNorm1d(input_dim)] if normalize_input else []
         for dim in dims:
             module_list.extend([
@@ -445,9 +445,9 @@ class ParticleTransformer(BaseNet):
                             v = v[:, :, :maxlen]
                             ids = ids[:, :maxlen]
                 
-                print("mask", mask.shape)
+                #print("mask", mask.shape)
             padding_mask = ~mask.squeeze(1)  # (N, P)
-            print("padding_mask", padding_mask.shape)
+            #print("padding_mask", padding_mask.shape)
 
         with torch.cuda.amp.autocast(enabled=self.use_amp):  
             # input embedding

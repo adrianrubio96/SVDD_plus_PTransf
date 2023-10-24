@@ -72,22 +72,91 @@ def boost(x, boostp4, eps=1e-8):
 def p3_norm(p, eps=1e-8):
     return p[:, :3] / p[:, :3].norm(dim=1, keepdim=True).clamp(min=eps)
 
-def pairwise_lv_fts(xi, xj, idi, idj, sm_int_matrix, eps=1e-8, for_onnx=False):
+def calculate_coupling_constants(scale_change, mu_0=91, alpha_0=1/137, alpha_s_0=0.118, beta_0=-1/3, beta_s_0=9):
+    scale_change = torch.clamp(scale_change, min=1e-8)
+
+    alpha = alpha_0 / (1 - beta_0 * alpha_0 / (2 * torch.pi) * torch.log(scale_change / mu_0)) # torch.Size([512, 1, 171])
+    alpha_s = alpha_s_0 / (1 - beta_s_0 * alpha_s_0 / (2 * torch.pi) * torch.log(scale_change / mu_0))# torch.Size([512, 1, 171])
+
+    g_e = torch.sqrt(4 * torch.pi * alpha).squeeze() # torch.Size([512, 171])
+    g_s = torch.sqrt(4 * torch.pi * torch.abs(alpha_s)).squeeze() # torch.Size([512, 171])
+
+    return g_e, g_s
+
+def get_coupling(idi, idj, g_e, g_s, g_z):
+    # Create a tensor to store the resulting couplings
+    coupling = torch.zeros_like(g_e)
+
+    # Define the mappings
+    mapping = {
+        ('j', 'j'): g_s,
+        ('j', 'b'): g_s,
+        ('j', 'g'): g_e / 2,
+        ('b', 'j'): g_s,
+        ('b', 'b'): g_s,
+        ('b', 'g'): g_e / 3,
+        ('e-', 'e+'): g_z,
+        ('e-', 'g'): g_e,
+        ('e+', 'e-'): g_z,
+        ('e+', 'g'): g_e,
+        ('m-', 'm+'): g_z,
+        ('m-', 'g'): g_e,
+        ('m+', 'm-'): g_z,
+        ('m+', 'g'): g_e,
+        ('g', 'j'): g_e / 2,
+        ('g', 'b'): g_e / 3,
+        ('g', 'e-'): g_e,
+        ('g', 'e+'): g_e,
+        ('g', 'm-'): g_e,
+        ('g', 'm+'): g_e
+    }
+
+    id_strs = {
+        1: 'j',
+        2: 'b',
+        3: 'g',
+        4: 'e+',
+        5: 'e-',
+        6: 'm+',
+        7: 'm-'
+    }
+
+    # Iterate over the mappings and set the corresponding coupling values
+    for key, value in mapping.items():
+        # The mask is True for all elements in coupling where the particle types of the two inputs match the particle types in the keys of "mapping" tuple.
+        mask = (idi == list(id_strs.keys())[list(id_strs.values()).index(key[0])]) & \
+               (idj == list(id_strs.keys())[list(id_strs.values()).index(key[1])])
+        coupling[mask] = value[mask]
+
+    return coupling
+
+
+def pairwise_lv_fts(xi, xj, idi, idj, eps=1e-8, for_onnx=False):
     xij = xi + xj
     pti, rapi, phii = to_ptrapphim(xi, False, eps=None, for_onnx=for_onnx).split((1, 1, 1), dim=1)
     ptj, rapj, phij = to_ptrapphim(xj, False, eps=None, for_onnx=for_onnx).split((1, 1, 1), dim=1)
     deltaij = delta_r2(rapi, phii, rapj, phij).sqrt()
     lndeltaij = torch.log(deltaij.clamp(min=eps))
 
+    batch_size, _, seq_len = xij.size()
+
     ptmin = ((pti <= ptj) * pti + (pti > ptj) * ptj) if for_onnx else torch.minimum(pti, ptj)
     lnz = torch.log((ptmin / (pti + ptj).clamp(min=eps)).clamp(min=eps))
     lnm2 = torch.log(to_m2(xij, eps=eps))
 
-    id_int = sm_int_matrix[idi, idj].unsqueeze(1).float()
+    avg_pt = (pti + ptj) / 2 
 
-    # return torch.cat([lndeltaij, lnm2, id_int], dim=1)
-    return torch.cat([lndeltaij, lnz], dim=1)
-    # return torch.cat([lnm2, lnz], dim=1)
+    g_e, g_s = calculate_coupling_constants(avg_pt)
+    g_z = torch.full((batch_size, 171), 0.758, device=xij.device)
+
+    sm_int = get_coupling(idi, idj, g_e, g_s, g_z).float()
+    sm_int = sm_int.unsqueeze(1)
+
+    # 171 unique combinations (including self combinations) for each element in the batch
+    # In the pairwise_lv_fts function, sm_int should represent the interaction terms for each of these combinations for every event in the batch. 
+    # So, its shape aligns with the expected output for each unique particle combination in each event of the batch.
+
+    return torch.cat([lndeltaij, lnm2, sm_int], dim=1)
 
 def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
     # From https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/layers/weight_init.py
@@ -184,8 +253,8 @@ class PairEmbed(nn.Module):
 
         self.register_buffer("sm_int_matrix", sm_int_matrix)
         
-        # input_dim = 3 # includes the SM ids
-        input_dim = 2 # without the SM ids
+        input_dim = 3 # includes the SM ids
+        #input_dim = 2 # without the SM ids
         module_list = [nn.BatchNorm1d(input_dim)] if normalize_input else []
         for dim in dims:
             module_list.extend([
@@ -210,7 +279,7 @@ class PairEmbed(nn.Module):
                 xj  = x[ :, :, j, i]
                 idi = ids[:, i, j]
                 idj = ids[:, j, i]
-                x = self.pairwise_lv_fts(xi=xi, xj=xj, idi=idi, idj=idj, sm_int_matrix=self.sm_int_matrix)
+                x = self.pairwise_lv_fts(xi=xi, xj=xj, idi=idi, idj=idj)
             else:
                 # NOT UPDATED FOR NEW PAIRWISE INTERACTIONS
                 x = self.pairwise_lv_fts(x.unsqueeze(-1), x.unsqueeze(-2)).view(batch_size, -1, seq_len * seq_len)
@@ -445,9 +514,9 @@ class ParticleTransformer(BaseNet):
                             v = v[:, :, :maxlen]
                             ids = ids[:, :maxlen]
                 
-                print("mask", mask.shape)
+                #print("mask", mask.shape)
             padding_mask = ~mask.squeeze(1)  # (N, P)
-            print("padding_mask", padding_mask.shape)
+            #print("padding_mask", padding_mask.shape)
 
         with torch.cuda.amp.autocast(enabled=self.use_amp):  
             # input embedding
