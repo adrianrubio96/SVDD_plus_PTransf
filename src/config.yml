@@ -38,7 +38,7 @@ ftops_Transformer:
   fc_params: [[64, 0.], [256, 0.], [64, 0.]]
   aux_fc_params: [[32, 0.], [32, 0.]]
   embed_dims: [128, 512, 128]
-  pair_embed_dims: [64, 64, 64]
+  pair_embed_dims: [64, 64, 64] # None for no interactions
   activation: gelu
   add_bias_attn: False
   seq_len: -1

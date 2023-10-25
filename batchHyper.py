@@ -156,7 +156,7 @@ def optParser():
     parser.add_option("-p","--prefix", dest="prefix", help="Default name of the runs",default=None)
     parser.add_option("-a","--architecture", dest="architecture", help="String name of the architecture: ftops_Mlp, ftops_Transformer, ftops_ParticleNET",default=None)
     parser.add_option("-s","--scheduler", dest="scheduler", help="String name of the scheduler: ReduceLROnPlateau, MultiStepLR",default=None)
-    parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default=None)
+    parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default='src/config.yml')
 
     (config, sys.argv[1:]) = parser.parse_args(sys.argv[1:])
     return config
