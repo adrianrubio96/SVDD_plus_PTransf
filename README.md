@@ -47,7 +47,7 @@ The most important information about the definition of the networks and how the 
 ## Run on the batch
 To run on batch, the `batchHyper.py` script creates a folder with .sh jobs tu be run in parallel together with the corresponding submission script. This is useful to parallelise jobs when needed to scan over different hyperparameters. To scan over learning rates and batch size:
 ```
-python batchHyper.py --lr 1e-3,1e-4,1e-5 --batch_size 50,500,5000 --folder-name ParT-scan-test --prefix ParT_DarkM_v21
+python batchHyper.py --architecture ftops_Transformer --folder-name ParT-scan-test --prefix ParT_DarkM_v21  --lr 1e-3,1e-4,1e-5 --batch_size 50,500,5000
 ```
 where the remaining default hyperparametes will be taken from `src/config.yml`. 
 
