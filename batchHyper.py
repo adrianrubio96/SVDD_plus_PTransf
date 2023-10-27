@@ -15,6 +15,7 @@ def main ():
     yaml_ = config.config if config.config else None
     batchFolder = "batch__%s" % name
     extraCommand = config.options
+    h5 = config.h5
 
     # Read yaml file
     with open(yaml_, 'r') as f:
@@ -59,7 +60,7 @@ def main ():
     for hypname in hyperparameters.keys():
         print ("[info] . Hyperparameter: %s" % hypname)
         for hypvalue in hyperparameters[hypname]:
-            createShell (hypname, hypvalue, default_hypers, architecture, prefix, batchFolder, extraCommand)
+            createShell (hypname, hypvalue, default_hypers, architecture, prefix, batchFolder, h5, yaml_, extraCommand)
     subScript = "%s.sub" % name
     print ("[info] Making the submission script: %s" % subScript)
     createBatch (batchFolder, subScript)
@@ -68,11 +69,11 @@ def main ():
 # ---------------------------------------------------------------
 # create shell script
 # ---------------------------------------------------------------
-def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFolder, extraCommand):
+def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFolder, h5, yaml, extraCommand):
 
     # Set default command to run
     #command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-5 --n_epochs 500 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
-    command = "python main_iter.py 4tops %s ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v2/chan1/v21/h5/DarkMachines_all.h5  --objective one-class  --pretrain False " % architecture
+    command = "python main_iter.py 4tops %s ../log/DarkMachines %s  --objective one-class  --pretrain False " % (architecture, h5)
 
     # Complete command with options
     runname_list = []
@@ -101,10 +102,13 @@ def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFold
     
     # Add run name to command
     command += " --network_name %s" % (runname)
+
+    # Add yaml config in command after h5 file
+    runningFolder = os.getcwd()
+    command = command.replace('.h5', '.h5 %s/%s/config_%s.yml' % (runningFolder, batchFolder, runname))
     
     print("[info] . Run name: %s" % runname)
     shellName = "%s/%s.sh" % (batchFolder, runname)
-    runningFolder = os.getcwd()
 
     s = open (shellName, "w+")
     s.write ("#!/usr/bin/bash\n")
@@ -115,6 +119,9 @@ def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFold
     s.write ("deactivate\n")
     s.close()
     os.system ("chmod +x %s" % (shellName))
+
+    # Copy original config.yml file to new config file
+    os.system("cp %s %s/%s/config_%s.yml" % (yaml, runningFolder, batchFolder, runname))
 
 # ---------------------------------------------------------------
 # create batch submission script
@@ -156,7 +163,8 @@ def optParser():
     parser.add_option("-p","--prefix", dest="prefix", help="Default name of the runs",default=None)
     parser.add_option("-a","--architecture", dest="architecture", help="String name of the architecture: ftops_Mlp, ftops_Transformer, ftops_ParticleNET",default=None)
     parser.add_option("-s","--scheduler", dest="scheduler", help="String name of the scheduler: ReduceLROnPlateau, MultiStepLR",default=None)
-    parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default='src/config.yml')
+    parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default='/lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/src/config.yml')
+    parser.add_option("-i","--h5", dest="h5", help="Path to the h5 file",default='/lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v2/chan1/v21/h5/DarkMachines_all.h5')
 
     (config, sys.argv[1:]) = parser.parse_args(sys.argv[1:])
     return config

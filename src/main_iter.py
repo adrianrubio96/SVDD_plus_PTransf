@@ -44,6 +44,7 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.argument('net_name', type=click.Choice(['mnist_LeNet', 'cifar10_LeNet', 'cifar10_LeNet_ELU','ftops_Transformer','ftops_Mlp','ftops_ParticleNET']))
 @click.argument('xp_path', type=click.Path(exists=True))
 @click.argument('data_path', type=click.Path(exists=True))
+@click.argument('yaml_config', type=click.Path(exists=True))
 @click.option('--load_config', type=click.Path(exists=True), default=None,
               help='Config JSON-file path (default: None).')
 @click.option('--load_model', type=click.Path(exists=True), default=None,
@@ -90,7 +91,7 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.option('--test_name', type=str, default='', help='Suffix to add to test results file.')
 
 
-def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim, test_mode, test_name):
+def main(network_name, dataset_name, net_name, xp_path, data_path, yaml_config, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim, test_mode, test_name):
     """
     Deep SVDD, a fully deep method for anomaly detection.
 
@@ -98,6 +99,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     :arg NET_NAME: Name of the neural network to use.
     :arg XP_PATH: Export path for logging the experiment.
     :arg DATA_PATH: Root path of data.
+    :arg YAML_CONFIG: Path to YAML config file.
     """
     isExist = os.path.exists(xp_path)
     if not isExist:
@@ -128,6 +130,8 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     logger.info('Dataset: %s' % dataset_name)
     logger.info('Normal class: %d' % normal_class)
     logger.info('Network: %s' % net_name)
+
+    logger.info('Yaml config file: %s' % yaml_config)
 
     # If specified, load experiment config from JSON-file
     if load_config:
@@ -165,7 +169,6 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, load_config, 
     wandb.init(project='test', name=cfg.settings['network_name'].replace('all', cfg.settings['test_name'] if cfg.settings['test_name'] != '' else 'all' )) # + '_dim_' + str(_z)) 
 
     # Read network hyperparameters from yaml config as dictionary
-    yaml_config = 'config.yml'
     with open(yaml_config, 'r') as f:
         yaml_dic = yaml.load(f, Loader=yaml.FullLoader)
     
