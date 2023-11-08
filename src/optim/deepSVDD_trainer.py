@@ -3,6 +3,7 @@ from base.base_dataset import BaseADDataset
 from base.base_net import BaseNet
 from torch.utils.data.dataloader import DataLoader
 from sklearn.metrics import roc_auc_score
+from base.performance import performance
 
 #import EarlyStopping
 #from pytorchtools import EarlyStopping
@@ -46,6 +47,9 @@ class DeepSVDDTrainer(BaseTrainer):
         self.test_auc = None
         self.test_time = None
         self.test_scores = None
+        self.test_eff_0p01 = None
+        self.test_eff_0p001 = None
+        self.test_eff_0p0001 = None
 
         # Network
         self.net_name = net_name
@@ -354,11 +358,22 @@ class DeepSVDDTrainer(BaseTrainer):
 
         #combined = np.stack((scores, labels), axis=-1)
         #np.save('scores', combined)
-
+        
+        # Compute AUC
         self.test_auc = roc_auc_score(labels, scores)
-        logger.info('Test set AUC: {:.2f}%'.format(100. * self.test_auc))
+        logger.info('Test set AUC: {:.2f}'.format(self.test_auc))
 
         wandb.log({"AUC": 100*self.test_auc})
+
+        # Compute bkg rejection
+        self.test_eff_0p01, self.test_eff_0p001, self.test_eff_0p0001 = performance(labels, scores)
+        logger.info('Signal efficiency at bkg efficiency of 0.01: {:.5f}'.format(self.test_eff_0p01))
+        logger.info('Signal efficiency at bkg efficiency of 0.001: {:.5f}'.format(self.test_eff_0p001))
+        logger.info('Signal efficiency at bkg efficiency of 0.0001: {:.5f}'.format(self.test_eff_0p0001))
+
+        wandb.log({"sig_eff_0p01": self.test_eff_0p01, 
+                   "sig_eff_0p001": self.test_eff_0p001, 
+                   "sig_eff_0p0001": self.test_eff_0p0001})
 
         #wandb.log({"roc": wandb.plot.roc_curve(y_true=labels, y_probas=scores)})
 
@@ -431,3 +446,5 @@ class DeepSVDDTrainer(BaseTrainer):
 def get_radius(dist: torch.Tensor, nu: float):
     """Optimally solve for radius R via the (1-nu)-quantile of distances."""
     return np.quantile(np.sqrt(dist.clone().data.cpu().numpy()), 1 - nu)
+
+
