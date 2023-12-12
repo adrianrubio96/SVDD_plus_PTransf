@@ -57,7 +57,7 @@ ftops_Transformer:
     optimizer_name: adam
     batch_size: 500
     n_epochs: 500
-    lr: 0.00001
+    lr: 0.0001
     #scheduler: MultiStepLR
     scheduler: ReduceLROnPlateau
     lr_milestone: 50
