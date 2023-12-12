@@ -86,7 +86,7 @@ def pairwise_lv_fts(xi, xj, idi, idj, sm_int_matrix, eps=1e-8, for_onnx=False):
     id_int = sm_int_matrix[idi, idj].unsqueeze(1).float()
 
     # return torch.cat([lndeltaij, lnm2, id_int], dim=1)
-    return torch.cat([lndeltaij, lnz], dim=1)
+    return torch.cat([lndeltaij, lnm2], dim=1)
     # return torch.cat([lnm2, lnz], dim=1)
 
 def trunc_normal_(tensor, mean=0., std=1., a=-2., b=2.):
