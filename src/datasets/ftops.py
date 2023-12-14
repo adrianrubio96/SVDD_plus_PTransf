@@ -9,19 +9,20 @@ import sys
 
 from sklearn.preprocessing import MinMaxScaler,StandardScaler,RobustScaler
 
-def convert_data(data):
+def convert_data(data, max_obj):
     MeV_to_GeV = 1e-3
 
     n_data = data.shape[0]
 
     # One-hot encoding for ids
-    data_ids = torch.nn.functional.one_hot(data[:,:18].long()).float()
+    data_ids = torch.nn.functional.one_hot(data[:,:max_obj].long()).float()
 
     # MET data
-    data_aux = data[:,18:20]
+    max_obj_and_met_info = max_obj + 2
+    data_aux = data[:,max_obj:max_obj_and_met_info]
 
     # Particle momenta in E, pt, eta, phi
-    data_momenta = data[:, 20:].reshape(data.shape[0], 18, 4)
+    data_momenta = data[:, max_obj_and_met_info:].reshape(data.shape[0], max_obj, 4)
 
     # Distance metrics eta, phi
     data_distance = data_momenta[:,:,2:]
@@ -34,7 +35,7 @@ def convert_data(data):
     data_four_vec[:,:,3] = MeV_to_GeV*torch.exp(data_momenta[:,:,0])
 
     # Particle ids for interaction term
-    data_id_int = data[:,:18].long()
+    data_id_int = data[:,:max_obj].long()
 
     # Set back to zero
     data_four_vec[data_momenta == 0.] = 0.
@@ -56,7 +57,7 @@ def convert_data(data):
 
 class FTOPS():
  
-    def __init__(self, root, mode='train', net_name='ftops_Mlp'):
+    def __init__(self, root, max_obj, mode='train', net_name='ftops_Mlp'):
 
         if net_name == 'ftops_Mlp':
             self.mode = mode
@@ -107,17 +108,17 @@ class FTOPS():
             if self.mode == 'train':
                 train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
                 self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
-                data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, _, data_mask_train = convert_data(train_data)
+                data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, _, data_mask_train = convert_data(train_data, max_obj)
                 self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_momenta_train, data_id_int_train, data_mask_train)
             if self.mode == 'validation':
                 val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
                 self.val_labels = torch.tensor(hf.get('y_val'), dtype=torch.long)
-                data_aux_val, data_tokens_val, data_momenta_val, data_id_int_val, _, data_mask_val = convert_data(val_data)
+                data_aux_val, data_tokens_val, data_momenta_val, data_id_int_val, _, data_mask_val = convert_data(val_data, max_obj)
                 self.val_data = torch.utils.data.TensorDataset(data_aux_val,   data_tokens_val,   data_momenta_val,   data_id_int_val,   data_mask_val)
             if self.mode == 'test':
                 test_data = torch.tensor(np.array(hf.get('X_test')), dtype=torch.float32)
                 self.test_labels = torch.tensor(hf.get('y_test'), dtype=torch.long)
-                data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, _, data_mask_test = convert_data(test_data)
+                data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, _, data_mask_test = convert_data(test_data, max_obj)
                 self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_momenta_test, data_id_int_test, data_mask_test)
 
         if net_name == 'ftops_ParticleNET':
@@ -131,17 +132,17 @@ class FTOPS():
             if self.mode == 'train':
                 train_data = torch.tensor(np.array(hf.get('X_train')), dtype=torch.float32)
                 self.train_labels = torch.tensor(hf.get('Y_train'), dtype=torch.long)
-                data_aux_train, data_tokens_train, data_momenta_train, _, data_distance_train, data_mask_train = convert_data(train_data)
+                data_aux_train, data_tokens_train, data_momenta_train, _, data_distance_train, data_mask_train = convert_data(train_data, max_obj)
                 self.train_data = torch.utils.data.TensorDataset(data_aux_train, data_tokens_train, data_distance_train, data_momenta_train, data_mask_train, self.train_labels)
             if self.mode == 'validation':
                 val_data = torch.tensor(np.array(hf.get('X_val')), dtype=torch.float32)
                 self.val_labels = torch.tensor(hf.get('y_val'), dtype=torch.long)
-                data_aux_val, data_tokens_val, data_momenta_val, _, data_distance_val, data_mask_val = convert_data(val_data)
+                data_aux_val, data_tokens_val, data_momenta_val, _, data_distance_val, data_mask_val = convert_data(val_data, max_obj)
                 self.val_data = torch.utils.data.TensorDataset(data_aux_val, data_tokens_val, data_distance_val, data_momenta_val, data_mask_val, self.val_labels)
             if self.mode == 'test':
                 test_data = torch.tensor(np.array(hf.get('X_test')), dtype=torch.float32)
                 self.test_labels = torch.tensor(hf.get('y_test'), dtype=torch.long)
-                data_aux_test, data_tokens_test, data_momenta_test, _, data_distance_test, data_mask_test = convert_data(test_data)
+                data_aux_test, data_tokens_test, data_momenta_test, _, data_distance_test, data_mask_test = convert_data(test_data, max_obj)
                 self.test_data = torch.utils.data.TensorDataset(data_aux_test, data_tokens_test, data_distance_test, data_momenta_test, data_mask_test, self.test_labels)
 
   
@@ -172,12 +173,12 @@ class FTOPS():
 
 class FTOPS_Dataset(BaseADDataset):
   
-    def __init__(self, root: str, normal_class=0, net_name='ftops_Mlp'): 
+    def __init__(self, root: str, max_obj: int, normal_class=0, net_name='ftops_Mlp'): 
         super().__init__(root)
     
-        self.train_set = FTOPS(root, mode='train', net_name=net_name)
-        self.val_set = FTOPS(root, mode='validation', net_name=net_name)
-        self.test_set = FTOPS(root, mode='test', net_name=net_name)
+        self.train_set = FTOPS(root, max_obj, mode='train', net_name=net_name)
+        self.val_set = FTOPS(root, max_obj, mode='validation', net_name=net_name)
+        self.test_set = FTOPS(root, max_obj, mode='test', net_name=net_name)
 
     def loaders(self, batch_size: int, shuffle_train=True, shuffle_test=False, num_workers: int = 0) -> (DataLoader, DataLoader):
         train_loader = DataLoader(dataset=self.train_set, batch_size=batch_size, shuffle=shuffle_train, num_workers=num_workers)

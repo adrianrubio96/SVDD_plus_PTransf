@@ -25,7 +25,8 @@ def main ():
     architecture = config.architecture if config.architecture else None
     default_hypers = yaml_dic[architecture]["training"]
 
-    # Read hyperparameters from command line
+    # Read settings from command line
+    ## Hyperparameters
     lr = config.lr if config.lr else None
     n_epochs = config.n_epochs if config.n_epochs else None
     lr_milestone = config.lr_milestone if config.lr_milestone else None
@@ -33,6 +34,8 @@ def main ():
     batch_size = config.batch_size if config.batch_size else None
     rep_dim = config.rep_dim if config.rep_dim else None
     scheduler = config.scheduler if config.scheduler else None
+    # Input settings
+    max_obj = config.max_obj if config.max_obj else None
 
     # Make dictionary of hyperparameters to be scanned
     hyperparameters = {}
@@ -51,6 +54,7 @@ def main ():
         os.system ("rm %s/*log" % batchFolder)
         os.system ("rm %s/*out" % batchFolder)
         os.system ("rm %s/*.sh" % batchFolder)
+        os.system ("rm %s/*.yml" % batchFolder)
     else: 
         print ("[info]     .. creating ..")
         os.system ("mkdir  %s" % batchFolder)
@@ -60,7 +64,7 @@ def main ():
     for hypname in hyperparameters.keys():
         print ("[info] . Hyperparameter: %s" % hypname)
         for hypvalue in hyperparameters[hypname]:
-            createShell (hypname, hypvalue, default_hypers, architecture, prefix, batchFolder, h5, yaml_, extraCommand)
+            createShell (hypname, hypvalue, default_hypers, architecture, prefix, batchFolder, h5, max_obj, yaml_, extraCommand)
     subScript = "%s.sub" % name
     print ("[info] Making the submission script: %s" % subScript)
     createBatch (batchFolder, subScript)
@@ -69,11 +73,11 @@ def main ():
 # ---------------------------------------------------------------
 # create shell script
 # ---------------------------------------------------------------
-def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFolder, h5, yaml, extraCommand):
+def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFolder, h5, max_obj, yaml, extraCommand):
 
     # Set default command to run
     #command = "python main_iter.py 4tops ftops_Transformer ../log/DarkMachines /lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v1/channel1/v11/h5/DarkMachines.h5  --objective one-class --lr 1e-5 --n_epochs 500 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --rep_dim 10 --pretrain False --network_name %s" % (default_name)
-    command = "python main_iter.py 4tops %s ../log/DarkMachines %s  --objective one-class  --pretrain False " % (architecture, h5)
+    command = "python main_iter.py 4tops %s ../log/DarkMachines %s --max_obj %s  --objective one-class  --pretrain False " % (architecture, h5, max_obj)
 
     # Complete command with options
     runname_list = []
@@ -99,6 +103,7 @@ def createShell(hypname, hypvalue, default_hyps, architecture, prefix, batchFold
     runname = runname.replace("scheduler","sch")
     runname = runname.replace("ReduceLROnPlateau","Plateau")
     runname = runname.replace("MultiStepLR","Multi")
+    runname = runname.replace("max_obj","max")
     
     # Add run name to command
     command += " --network_name %s" % (runname)
@@ -156,7 +161,7 @@ def optParser():
     parser.add_option("-l","--lr", dest="lr", help="Comma-separated list of learning rate values for the training",default=None)
     parser.add_option("-e","--n_epochs", dest="n_epochs", help="Comma-separated list of epochs values for the training",default=None)
     parser.add_option("-w","--weight_decay", dest="weight_decay", help="Comma-separated list of weight decay values for the training",default=None)
-    parser.add_option("-m","--lr_milestone", dest="lr_milestone", help="Comma-separated list of learning rate milestones for the training",default=None)
+    parser.add_option("-r","--lr_milestone", dest="lr_milestone", help="Comma-separated list of learning rate milestones for the training",default=None)
     parser.add_option("-b","--batch_size", dest="batch_size", help="Comma-separated list of batch size values for the training",default=None)
     parser.add_option("-z","--rep_dim", dest="rep_dim", help="Comma-separated list of z_dim values for latent space",default=None)
     parser.add_option("-f","--folder-name", dest="name", help="Name of the folder",default=None)
@@ -164,7 +169,8 @@ def optParser():
     parser.add_option("-a","--architecture", dest="architecture", help="String name of the architecture: ftops_Mlp, ftops_Transformer, ftops_ParticleNET",default=None)
     parser.add_option("-s","--scheduler", dest="scheduler", help="String name of the scheduler: ReduceLROnPlateau, MultiStepLR",default=None)
     parser.add_option("-c","--config", dest="config", help="Configuration file for default hyperparameters",default='/lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/src/config.yml')
-    parser.add_option("-i","--h5", dest="h5", help="Path to the h5 file",default='/lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/v2/chan1/v21/h5/DarkMachines_all.h5')
+    parser.add_option("-i","--h5", dest="h5", help="Path to the h5 file",default='/lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/Roberto/v3/h5/monotop_200_A_chan1.h5')
+    parser.add_option("-m","--max_obj", dest="max_obj", help="Maximum number of objects in the event",default=None)
 
     (config, sys.argv[1:]) = parser.parse_args(sys.argv[1:])
     return config

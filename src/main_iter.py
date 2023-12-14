@@ -89,13 +89,15 @@ def plot_loghist(x, bins, alpha, normalised=True, logX=False):
 @click.option('--test_mode', type=bool, default=False,
               help='Use existing model to test on new signals.')
 @click.option('--test_name', type=str, default='', help='Suffix to add to test results file.')
+@click.option('--max_obj', type=int, default=None, help='Maximum number of objects in the dataset.')
 
 
-def main(network_name, dataset_name, net_name, xp_path, data_path, yaml_config, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim, test_mode, test_name):
+def main(network_name, dataset_name, max_obj, net_name, xp_path, data_path, yaml_config, load_config, load_model, objective, nu, device, seed, optimizer_name, lr, scheduler, n_epochs, lr_milestone, batch_size, weight_decay, pretrain, ae_optimizer_name, ae_lr, ae_n_epochs, ae_lr_milestone, ae_batch_size, ae_weight_decay, n_jobs_dataloader, normal_class, rep_dim, test_mode, test_name):
     """
     Deep SVDD, a fully deep method for anomaly detection.
 
     :arg DATASET_NAME: Name of the dataset to load.
+    :arg MAX_OBJ: Maximum number of objects in the dataset.
     :arg NET_NAME: Name of the neural network to use.
     :arg XP_PATH: Export path for logging the experiment.
     :arg DATA_PATH: Root path of data.
@@ -128,6 +130,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, yaml_config, 
     logger.info('Export path is %s.' % xp_path)
 
     logger.info('Dataset: %s' % dataset_name)
+    logger.info('Max number of objects: %d' % max_obj)
     logger.info('Normal class: %d' % normal_class)
     logger.info('Network: %s' % net_name)
 
@@ -157,7 +160,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, yaml_config, 
 
     # Load data
  
-    dataset = load_dataset(dataset_name, data_path, normal_class, net_name)
+    dataset = load_dataset(dataset_name, data_path, max_obj, normal_class, net_name)
 
     # Extract number of feautures
     #train_loader, _, _= dataset.loaders(batch_size=10)
@@ -166,7 +169,7 @@ def main(network_name, dataset_name, net_name, xp_path, data_path, yaml_config, 
     #    break
 
     # Start a W&B run
-    wandb.init(project='test', name=cfg.settings['network_name'].replace('all', cfg.settings['test_name'] if cfg.settings['test_name'] != '' else 'all' )) # + '_dim_' + str(_z)) 
+    wandb.init(project='test', name=cfg.settings['network_name'].replace('v3', 'v3_'+cfg.settings['test_name'] if cfg.settings['test_name'] != '' else 'v3' )) # + '_dim_' + str(_z)) 
 
     # Read network hyperparameters from yaml config as dictionary
     with open(yaml_config, 'r') as f:
