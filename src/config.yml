@@ -5,11 +5,12 @@ ftops_Mlp:
 
   ## Architecture
   net_name: ftops_Mlp
+  fc_params: [[16, 0.], [8, 0.]]
 
   ## Input
   input_dim: 12 ## for j,b,e-,e+,mu-,mu+,g
   #input_dim: 9 ## for j,b,l,g
-  num_features: 92
+  num_features: 72 ## 72 for chan1, 92 for chan2a and chan2b and 97 for chan3
   aux_dim: 2
 
   ## Default hyperparameters for training
