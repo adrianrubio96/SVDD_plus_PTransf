@@ -6,7 +6,7 @@ from sklearn.metrics import roc_auc_score
 from base.performance import performance
 
 #import EarlyStopping
-#from pytorchtools import EarlyStopping
+from early_stopping_pytorch.pytorchtools import EarlyStopping
 
 import logging
 import time
@@ -82,7 +82,7 @@ class DeepSVDDTrainer(BaseTrainer):
             scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=self.lr_milestones, gamma=0.1)
         
         # initialize the early_stopping object
-        #early_stopping = EarlyStopping(patience=50, verbose=True, path='checkpoints/checkpoint.pt')
+        early_stopping = EarlyStopping(patience=20, verbose=True, path='checkpoints/checkpoint.pt')
 
 
         # Initialize hypersphere center c (if c not loaded)
@@ -245,11 +245,11 @@ class DeepSVDDTrainer(BaseTrainer):
                 wandb.log({"loss": np.log10(loss_epoch / n_batches_train), "val_loss": np.log10(validation_loss / len(val_loader)), "lr": optimizer.param_groups[0]['lr']})
 
             #If LR scehdule is on
-            #early_stopping(validation_loss/len(val_loader), net)
+            early_stopping(validation_loss/len(val_loader), net)
         
-            #if early_stopping.early_stop:
-            #  print("Early stopping")
-            #  break
+            if early_stopping.early_stop:
+              print("Early stopping")
+              break
 
             if self.scheduler == 'ReduceLROnPlateau':
                 scheduler.step(validation_loss / len(val_loader))
