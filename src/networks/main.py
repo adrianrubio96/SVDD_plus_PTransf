@@ -38,7 +38,7 @@ def build_network(
     
 #    # For ParticleTransformer
     net_name = kwargs['net_name']
-    net_version = kwargs['net_version']
+    net_version = kwargs['net_version'] if 'net_version' in kwargs else 'standard'
 #    input_dim = kwargs['input_dim']
 #    rep_dim = kwargs['rep_dim']
 #    aux_dim = kwargs['aux_dim']
