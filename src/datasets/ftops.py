@@ -75,9 +75,9 @@ class FTOPS():
             scaler = StandardScaler()
     
             scaler.fit(reg)
-            reg_normalized = scaler.transform(reg)
     
             if self.mode == 'train':
+                reg_normalized = scaler.transform(reg)
                 self.train_data = np.concatenate((num_objects, reg_normalized), axis=1)
                 self.train_labels = np.array(hf.get('Y_train'))
     
