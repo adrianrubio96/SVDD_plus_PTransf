@@ -4,7 +4,8 @@ src_dir=/lhome/ific/a/adruji/DarkMachines/unsupervised/Deep_SVDD_PTransf/src
 h5_file=/lustre/ific.uv.es/grid/atlas/t3/adruji/DarkMachines/arrays/Roberto/v3/h5/monotop_200_A_chan1.h5
 max_obj=14
 yaml_config=config.yml
+architecture=ftops_Mlp
 cd $src_dir
 #gpurun python main_iter.py 4tops ftops_Transformer ../log/4tops ../data --objective one-class --lr 0.0001 --n_epochs 5 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --pretrain False 
-gpurun python main_iter.py 4tops ftops_Transformer ../log/DarkMachines $h5_file $yaml_config --max_obj ${max_obj} --objective one-class --lr 0.0001 --n_epochs 2 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --pretrain False 
+gpurun python main_iter.py 4tops ${architecture} ../log/DarkMachines $h5_file $yaml_config --max_obj ${max_obj} --objective one-class --lr 0.0001 --n_epochs 2 --lr_milestone 50 --batch_size 500 --weight_decay 0.5e-6 --pretrain False 
 cd $dir
